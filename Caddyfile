@@ -1,0 +1,42 @@
+# Caddy v2, no extra modules required
+
+irisvision.ai, www.irisvision.ai {
+	encode zstd gzip
+
+	# Health check (HTTPS)
+	@health path /health
+	respond @health "OK" 200
+
+	# Redirect www → apex
+	@www host www.irisvision.ai
+	redir @www https://irisvision.ai{uri} permanent
+
+	# API + WebSockets → backend
+	@api path /api/* /ws/*
+	reverse_proxy @api backend:8000
+
+	# Everything else → frontend (Next.js)
+	reverse_proxy frontend:3000
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-XSS-Protection "1; mode=block"
+	}
+
+	# Access logs to stdout (recommended in containers)
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Optional: Plain HTTP listener for health + redirect to HTTPS
+:80 {
+	@health path /health
+	respond @health "OK" 200
+	redir https://irisvision.ai{uri}
+}
