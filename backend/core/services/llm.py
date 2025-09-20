@@ -203,7 +203,7 @@ def _configure_openai_gpt5(params: Dict[str, Any], model_name: str) -> None:
         params["extra_body"] = extra_body
 
 def _configure_kimi_k2(params: Dict[str, Any], model_name: str) -> None:
-    """Configure Kimi K2-specific parameters."""
+    """Configure Gemini 2.5 Flash-specific parameters."""
     is_kimi_k2 = "kimi-k2" in model_name.lower() or model_name.startswith("moonshotai/kimi-k2")
     if not is_kimi_k2:
         return

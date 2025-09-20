@@ -112,7 +112,7 @@ async def run_agent_background(
     })
     
     from core.ai_models import model_manager
-    is_tier_default = model_name in ["Kimi K2", "Claude Sonnet 4", "gemini/gemini-2.5-flash"]
+    is_tier_default = model_name in ["Gemini 2.5 Flash", "Claude Sonnet 4", "gemini/gemini-2.5-flash"]
     
     if is_tier_default and agent_config and agent_config.get('model'):
         agent_model = agent_config['model']

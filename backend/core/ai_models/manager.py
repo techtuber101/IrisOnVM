@@ -214,7 +214,7 @@ class ModelManager:
                 logger.debug(f"Setting Claude Sonnet 4 as default for paid user {user_id}")
                 return DEFAULT_PREMIUM_MODEL
             else:
-                logger.debug(f"Setting Kimi K2 as default for free user {user_id}")
+                logger.debug(f"Setting Gemini 2.5 Flash as default for free user {user_id}")
                 return DEFAULT_FREE_MODEL
                 
         except Exception as e:
