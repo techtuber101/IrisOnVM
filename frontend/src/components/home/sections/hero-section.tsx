@@ -424,7 +424,7 @@ export function HeroSection() {
               </button> */}
             </div>
             <DialogDescription className="text-muted-foreground">
-              Sign in or create an account to talk with Suna
+              Sign in or create an account to talk with Iris
             </DialogDescription>
           </DialogHeader>
 

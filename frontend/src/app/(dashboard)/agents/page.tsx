@@ -170,7 +170,7 @@ export default function AgentsPage() {
     sort_by: templatesSortBy,
     sort_order: templatesSortOrder,
     content_type: "templates"
-  }), [templatesPage, templatesPageSize, templatesSearchQuery, templatesSortBy, templatesSortOrder]);
+  }), [templatesPage, templatesPageSize, templatesSearchQuery, templatesSortBy, templatesSortOrder, agentsQueryParams]);
   
   const { data: templatesResponse, isLoading: templatesLoading, error: templatesError } = useAgents(templatesAgentsQueryParams);
   const myTemplates = templatesResponse?.agents;

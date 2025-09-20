@@ -165,7 +165,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                             <div className="flex items-center gap-2 min-w-0 max-w-[180px]">
                                 {renderAgentIcon(displayAgent)}
                                 <span className="truncate text-sm font-medium">
-                                    {displayAgent?.name || 'Suna'}
+                                    {displayAgent?.name || 'Iris'}
                                 </span>
                                 <ChevronDown size={12} className="opacity-60 flex-shrink-0" />
                             </div>
@@ -370,7 +370,7 @@ const GuestMenu: React.FC<UnifiedConfigMenuProps> = () => {
                                 <div className="flex-shrink-0">
                                     <KortixLogo size={20} />
                                 </div>
-                                <span className="truncate text-sm font-medium">Suna</span>
+                                <span className="truncate text-sm font-medium">Iris</span>
                                 <ChevronDown size={12} className="opacity-60 flex-shrink-0" />
                             </div>
                         </Button>

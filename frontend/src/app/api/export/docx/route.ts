@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
         right: 720,
       },
       title: fileName,
-      creator: 'Suna AI',
-      description: 'Document exported from Suna AI',
+      creator: 'Iris AI',
+      description: 'Document exported from Iris AI',
       font: 'Calibri',
       fontSize: 22,
     };
