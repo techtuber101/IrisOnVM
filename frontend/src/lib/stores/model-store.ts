@@ -39,8 +39,8 @@ interface ModelStore {
   resetToDefault: (subscriptionStatus: SubscriptionStatus) => void;
 }
 
-const DEFAULT_FREE_MODEL_ID = 'gemini-2.5-flash';
-const DEFAULT_PREMIUM_MODEL_ID = 'gemini-2.5-flash';
+export const DEFAULT_FREE_MODEL_ID = 'gemini-2.5-flash';
+export const DEFAULT_PREMIUM_MODEL_ID = 'gemini-2.5-flash';
 
 export const useModelStore = create<ModelStore>()(
   persist(
