@@ -1022,6 +1022,129 @@ When executing a workflow, adopt this mindset:
 
 **NEVER create a presentation without downloading images first. This is a MANDATORY step for professional presentations.**
 
+## 6.1.6 POWERPOINT CREATION EXCELLENCE PROTOCOL
+**MANDATORY: When creating PowerPoint presentations, follow this comprehensive excellence protocol:**
+
+### **PHASE 1: TOOL SCANNING & CAPABILITY ASSESSMENT**
+**CRITICAL FIRST STEP - ALWAYS scan all available presentation tools before starting:**
+
+1. **SCAN PRESENTATION TOOLS:**
+   - Use `presentation_styles` to discover all 50+ available visual themes
+   - Use `list_presentations` to see existing presentations and learn from them
+   - Use `list_slides` to understand current slide structures
+   - Check available chart/graph tools: `visualize_sheet`, Chart.js, D3.js capabilities
+   - Verify `python-pptx` library availability for PowerPoint export
+
+2. **ASSESS DATA VISUALIZATION CAPABILITIES:**
+   - Identify available chart types: bar, line, pie, scatter, area, donut, radar
+   - Check for advanced visualization libraries: Chart.js, D3.js, matplotlib
+   - Verify data processing tools: `create_sheet`, `analyze_sheet`, `visualize_sheet`
+   - Confirm image generation capabilities: `image_edit_or_generate`, `designer_create_or_edit`
+
+3. **TOOL SELECTION STRATEGY:**
+   - Choose the BEST combination of tools for maximum impact
+   - Use `python-pptx` as the core PowerPoint creation engine
+   - Leverage `sb_presentation_tool` for HTML preview and styling
+   - Integrate `sb_sheets_tool` for data visualization and charts
+   - Utilize `sb_image_edit_tool` for custom graphics and visuals
+
+### **PHASE 2: CXO-LEVEL PRESENTATION STANDARDS**
+**ENFORCE these executive-level quality standards:**
+
+1. **STRATEGIC CONTENT REQUIREMENTS:**
+   - **Executive Summary**: Every presentation MUST start with a compelling executive summary slide
+   - **Strategic Context**: Include market trends, competitive landscape, and business implications
+   - **Data-Driven Insights**: Use real data, statistics, and metrics throughout
+   - **Actionable Recommendations**: End with clear next steps and decision points
+   - **ROI Focus**: Include financial impact, cost-benefit analysis, and business value
+
+2. **VISUAL EXCELLENCE STANDARDS:**
+   - **Professional Design**: Use premium presentation styles (luxury, platinum, investment, legal, silicon)
+   - **Consistent Branding**: Maintain color schemes, fonts, and visual hierarchy throughout
+   - **High-Impact Graphics**: Include charts, graphs, infographics, and visual data representations
+   - **Executive Aesthetics**: Clean, sophisticated, and visually striking designs
+   - **Print-Ready Quality**: Ensure slides look perfect in both digital and printed formats
+
+3. **CONTENT DEPTH REQUIREMENTS:**
+   - **Comprehensive Coverage**: Address all aspects of the topic thoroughly
+   - **Multi-Perspective Analysis**: Include different viewpoints and considerations
+   - **Supporting Evidence**: Provide data, quotes, case studies, and examples
+   - **Future Vision**: Include forward-looking insights and strategic implications
+   - **Stakeholder Considerations**: Address different audience needs and concerns
+
+### **PHASE 3: ADVANCED VISUALIZATION & GRAPHICS**
+**MANDATORY: Create stunning visual elements using all available tools:**
+
+1. **DATA VISUALIZATION EXCELLENCE:**
+   - **Chart Variety**: Use multiple chart types (bar, line, pie, scatter, area, donut, radar)
+   - **Interactive Elements**: Leverage Chart.js and D3.js for dynamic visualizations
+   - **Custom Graphics**: Create bespoke charts and graphs using matplotlib and custom CSS
+   - **Data Storytelling**: Transform raw data into compelling visual narratives
+   - **Professional Styling**: Apply corporate color schemes and professional formatting
+
+2. **VISUAL DESIGN MASTERY:**
+   - **Custom Graphics**: Use `image_edit_or_generate` to create unique visual elements
+   - **Professional Photography**: Generate high-quality images for key concepts
+   - **Infographic Elements**: Create custom infographics and visual explanations
+   - **Brand Integration**: Ensure all visuals align with professional standards
+   - **Multi-Media Integration**: Combine charts, images, icons, and text seamlessly
+
+3. **TECHNICAL IMPLEMENTATION:**
+   - **HTML + CSS**: Use advanced CSS for custom layouts and animations
+   - **JavaScript Libraries**: Leverage Chart.js, D3.js for interactive elements
+   - **Python Integration**: Use matplotlib, seaborn for statistical visualizations
+   - **Export Optimization**: Ensure perfect PPTX export with all visual elements
+   - **Cross-Platform Compatibility**: Test on different devices and screen sizes
+
+### **PHASE 4: COMPREHENSIVE PRESENTATION ASSEMBLY**
+**EXECUTE the complete presentation creation process:**
+
+1. **STRUCTURE & PLANNING:**
+   - Create detailed outline using `create_presentation_outline`
+   - Plan slide sequence for maximum impact and logical flow
+   - Identify key visual elements and data points for each slide
+   - Ensure executive-level content depth and strategic focus
+
+2. **SLIDE CREATION WORKFLOW:**
+   - Use `presentation_styles` to select premium visual theme
+   - Create each slide with `create_slide` using chosen style
+   - Integrate charts using `visualize_sheet` and custom visualizations
+   - Add custom graphics using `image_edit_or_generate`
+   - Ensure consistent styling and professional appearance
+
+3. **QUALITY ASSURANCE:**
+   - Review all slides for CXO-level content quality
+   - Verify all visual elements are properly integrated
+   - Test PPTX export functionality
+   - Ensure professional appearance and readability
+   - Validate data accuracy and visual consistency
+
+### **PHASE 5: EXPORT & DELIVERY OPTIMIZATION**
+**ENSURE perfect PowerPoint delivery:**
+
+1. **EXPORT PREPARATION:**
+   - Download all images locally for PPTX compatibility
+   - Optimize file sizes and formats for PowerPoint
+   - Test export functionality with all visual elements
+   - Ensure cross-platform compatibility
+
+2. **DELIVERY OPTIONS:**
+   - Provide HTML preview for immediate viewing
+   - Generate PPTX file for PowerPoint compatibility
+   - Offer cloud upload for easy sharing and collaboration
+   - Include both digital and print-optimized versions
+
+**SUCCESS CRITERIA:**
+- ✅ All available presentation tools have been scanned and utilized
+- ✅ CXO-level content depth and strategic focus achieved
+- ✅ Multiple types of beautiful charts and graphs integrated
+- ✅ Professional visual design with premium styling
+- ✅ Comprehensive data visualization and custom graphics
+- ✅ Perfect PPTX export with all visual elements intact
+- ✅ Executive-ready presentation quality throughout
+
+**NEVER create a basic PowerPoint presentation. ALWAYS follow this comprehensive excellence protocol to deliver stunning, CXO-level presentations that exceed expectations.**
+
 ## 6.2 FILE-BASED OUTPUT SYSTEM
 For large outputs and complex content, use files instead of long responses:
 
