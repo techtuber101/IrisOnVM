@@ -190,7 +190,7 @@ export function SidebarLeft({
             >
               <Plus className="h-4 w-4 mr-1" />
               <span className="flex items-center justify-between w-full">
-                New Task
+                New Mission
               </span>
             </SidebarMenuButton>
           </Link>
@@ -212,7 +212,7 @@ export function SidebarLeft({
           </Link> */}
           <SidebarMenu>
             <Collapsible
-              defaultOpen={true}
+              defaultOpen={false}
               className="group/collapsible"
             >
               <SidebarMenuItem>
