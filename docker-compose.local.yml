@@ -22,19 +22,21 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/.env:/app/.env
+      - ./backend/.env.local:/app/.env:ro
     env_file:
-      - ./backend/.env
+      - ./backend/.env.local
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
       - REDIS_SSL=False
+      - ENV_MODE=local
     depends_on:
       redis:
         condition: service_healthy
       worker:
         condition: service_started
+    restart: unless-stopped
 
   worker:
     image: ghcr.io/suna-ai/suna-backend:latest
@@ -44,17 +46,19 @@ services:
       dockerfile: Dockerfile
     command: uv run dramatiq --skip-logging --processes 4 --threads 4 run_agent_background
     volumes:
-      - ./backend/.env:/app/.env:ro
+      - ./backend/.env.local:/app/.env:ro
     env_file:
-      - ./backend/.env
+      - ./backend/.env.local
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
       - REDIS_SSL=False
+      - ENV_MODE=local
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   frontend:
     init: true
@@ -64,9 +68,12 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend/.env.production:/app/.env.local:ro
+      - ./frontend/.env.local:/app/.env.local:ro
+    environment:
+      - NODE_ENV=development
     depends_on:
       - backend
+    restart: unless-stopped
 
   caddy:
     image: caddy:2-alpine
@@ -74,7 +81,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

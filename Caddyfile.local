@@ -1,0 +1,44 @@
+# Caddy v2 Local Development Configuration
+# Routes localhost to backend and frontend services
+
+localhost, 127.0.0.1, localhost:3000, localhost:8000 {
+	encode zstd gzip
+
+	# Health check
+	@health path /health
+	respond @health "OK" 200
+
+	# API + WebSockets → backend
+	@api path /api/* /ws/*
+	reverse_proxy @api backend:8000
+
+	# Everything else → frontend (Next.js)
+	reverse_proxy frontend:3000
+
+	# Development-friendly headers
+	header {
+		# Disable HSTS for local development
+		Strict-Transport-Security "max-age=0"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-XSS-Protection "1; mode=block"
+		# Allow localhost CORS for development
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		Access-Control-Allow-Headers "*"
+	}
+
+	# Development logs
+	log {
+		output stdout
+		format console
+	}
+}
+
+# HTTP redirect for local development
+:80 {
+	@health path /health
+	respond @health "OK" 200
+	redir http://localhost{uri}
+}

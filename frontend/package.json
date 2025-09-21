@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:local": "next dev --turbopack --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "setup:local": "cp .env.local.example .env.local && echo 'Please edit .env.local with your actual values'",
+    "setup:production": "cp .env.production.example .env.production && echo 'Please edit .env.production with your actual values'"
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.2",
