@@ -210,56 +210,53 @@ export function SidebarLeft({
               </span>
             </SidebarMenuButton>
           </Link> */}
-          {/* Agents menu temporarily hidden */}
-          {/* {(
-            <SidebarMenu>
-              <Collapsible
-                defaultOpen={true}
-                className="group/collapsible"
-              >
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip="Agents"
-                      onClick={() => {
-                        if (state === 'collapsed') {
-                          setOpen(true);
-                        }
-                      }}
-                    >
-                      <Bot className="h-4 w-4 mr-1" />
-                      <span>Agents</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem data-tour="my-agents">
-                        <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
-                          'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
-                        })} asChild>
-                          <Link href="/agents?tab=my-agents" onClick={() => isMobile && setOpenMobile(false)}>
-                            <span>My Agents</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem data-tour="new-agent">
-                        <SidebarMenuSubButton 
-                          onClick={() => {
-                            setShowNewAgentDialog(true);
-                            if (isMobile) setOpenMobile(false);
-                          }}
-                          className="cursor-pointer pl-3 touch-manipulation"
-                        >
-                          <span>New Agent</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          )} */}
+          <SidebarMenu>
+            <Collapsible
+              defaultOpen={true}
+              className="group/collapsible"
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip="Personalities"
+                    onClick={() => {
+                      if (state === 'collapsed') {
+                        setOpen(true);
+                      }
+                    }}
+                  >
+                    <Bot className="h-4 w-4 mr-1" />
+                    <span>Personalities</span>
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem data-tour="my-agents">
+                      <SidebarMenuSubButton className={cn('pl-3 touch-manipulation', {
+                        'bg-accent text-accent-foreground font-medium': pathname === '/agents' && (searchParams.get('tab') === 'my-agents' || searchParams.get('tab') === null),
+                      })} asChild>
+                        <Link href="/agents?tab=my-agents" onClick={() => isMobile && setOpenMobile(false)}>
+                          <span>My Added Personalities</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem data-tour="new-agent">
+                      <SidebarMenuSubButton 
+                        onClick={() => {
+                          setShowNewAgentDialog(true);
+                          if (isMobile) setOpenMobile(false);
+                        }}
+                        className="cursor-pointer pl-3 touch-manipulation"
+                      >
+                        <span>Create New Personality</span>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          </SidebarMenu>
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>
