@@ -23,7 +23,7 @@ import {
   useStopAgentMutation,
 } from '@/hooks/react-query/threads/use-agent-run';
 import { useSharedSubscription } from '@/contexts/SubscriptionContext';
-import { SubscriptionStatus } from '@/components/thread/chat-input/_use-model-selection';
+import { SubscriptionStatus } from '@/lib/stores/model-store';
 
 import {
   UnifiedMessage,

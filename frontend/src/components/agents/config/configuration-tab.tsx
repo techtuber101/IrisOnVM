@@ -142,8 +142,7 @@ export function ConfigurationTab({
           <div className="space-y-3">
             {!isSunaAgent && (
               <>
-                {/* Model Configuration - Hidden as per requirement to only show Gemini 2.5 Flash */}
-                {/*
+                {/* Model Configuration */}
                 <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10" data-tour="model-section">
                   <button
                     className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"
@@ -181,7 +180,6 @@ export function ConfigurationTab({
                     </div>
                   )}
                 </div>
-                */}
                 <div className="group overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/10" data-tour="system-prompt">
                   <button
                     className="w-full p-4 text-left group-hover:bg-muted/30 transition-all duration-300"

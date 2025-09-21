@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 import { 
   useModelSelection, 
   MODELS
-} from '@/components/thread/chat-input/_use-model-selection';
+} from '@/components/thread/chat-input/_use-model-selection-new';
 import { formatModelName, getPrefixedModelId, DEFAULT_FREE_MODEL_ID, DEFAULT_PREMIUM_MODEL_ID } from '@/lib/stores/model-store';
 import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-billing';
 import { isLocalMode } from '@/lib/config';

@@ -103,8 +103,8 @@ class AgentConfigTool(AgentBuilderBaseTool):
                 
                 if restricted_fields:
                     return self.fail_response(
-                        f"Cannot modify {', '.join(restricted_fields)} for Suna. "
-                        f"Suna's core identity is centrally managed. You can still add MCPs, workflows, and triggers."
+                        f"Cannot modify {', '.join(restricted_fields)} for Iris. "
+                        f"Iris's core identity is centrally managed. You can still add MCPs, workflows, and triggers."
                     )
 
             agent_update_fields = {}

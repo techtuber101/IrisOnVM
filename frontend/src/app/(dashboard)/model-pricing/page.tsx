@@ -20,7 +20,7 @@ import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-billin
 import type { Model } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useModelSelection } from '@/components/thread/chat-input/_use-model-selection';
+import { useModelSelection } from '@/components/thread/chat-input/_use-model-selection-new';
 
 // Example task data with token usage
 const exampleTasks = [

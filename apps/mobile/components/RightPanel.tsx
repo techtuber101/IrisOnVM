@@ -301,7 +301,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({ isVisible, onClose, mess
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
                         <Computer size={16} color={styles.title.color} />
-                        <H4 style={styles.title}>Suna&apos;s Computer</H4>
+                        <H4 style={styles.title}>Iris&apos;s Computer</H4>
                     </View>
                     <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
                         <X size={16} color={styles.title.color} />
@@ -314,7 +314,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({ isVisible, onClose, mess
                     </View>
                     <Body style={styles.emptyTitle}>No tool activity</Body>
                     <Body style={styles.emptySubtitle}>
-                        Tool calls and computer interactions will appear here when they&apos;re being executed.
+                        Let's get started! iris computer interactions will appear here when they&apos;re being executed.
                     </Body>
                 </View>
             </View>
@@ -327,7 +327,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({ isVisible, onClose, mess
         <View style={styles.panel}>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <H4 style={styles.title}>Suna&apos;s Computer</H4>
+                    <H4 style={styles.title}>Iris&apos;s Computer</H4>
                 </View>
 
                 <View style={styles.headerActions}>

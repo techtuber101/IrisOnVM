@@ -72,18 +72,36 @@ export const useModelSelection = () => {
           top: true,
           capabilities: ['chat', 'function_calling', 'vision', 'structured_output'],
           contextWindow: 1000000
+        },
+        { 
+          id: 'gpt-5-mini', 
+          label: 'GPT-5 Mini', 
+          requiresSubscription: false,
+          priority: 85,
+          recommended: false,
+          top: true,
+          capabilities: ['chat', 'function_calling', 'structured_output'],
+          contextWindow: 400000
         }
       ];
     } else {
-      // Only show Gemini 2.5 Flash from API data
+      // Show both Gemini 2.5 Flash and GPT-5 Mini from API data
       const geminiModel = modelsData.models.find(model => 
         model.short_name === 'gemini-2.5-flash' || 
         model.id === 'gemini/gemini-2.5-flash' ||
         model.display_name === 'Gemini 2.5 Flash'
       );
       
+      const gptModel = modelsData.models.find(model => 
+        model.short_name === 'gpt-5-mini' || 
+        model.id === 'openai/gpt-5-mini' ||
+        model.display_name === 'GPT-5 Mini'
+      );
+      
+      models = [];
+      
       if (geminiModel) {
-        models = [{
+        models.push({
           id: geminiModel.short_name || 'gemini-2.5-flash',
           label: geminiModel.display_name || 'Gemini 2.5 Flash',
           requiresSubscription: geminiModel.requires_subscription || false,
@@ -92,10 +110,10 @@ export const useModelSelection = () => {
           top: true,
           capabilities: geminiModel.capabilities || [],
           contextWindow: geminiModel.context_window || 1000000
-        }];
+        });
       } else {
         // Fallback if Gemini model not found in API
-        models = [{
+        models.push({
           id: 'gemini-2.5-flash',
           label: 'Gemini 2.5 Flash',
           requiresSubscription: false,
@@ -104,7 +122,32 @@ export const useModelSelection = () => {
           top: true,
           capabilities: ['chat', 'function_calling', 'vision', 'structured_output'],
           contextWindow: 1000000
-        }];
+        });
+      }
+      
+      if (gptModel) {
+        models.push({
+          id: gptModel.short_name || 'gpt-5-mini',
+          label: gptModel.display_name || 'GPT-5 Mini',
+          requiresSubscription: gptModel.requires_subscription || false,
+          priority: gptModel.priority || 85,
+          recommended: gptModel.recommended || false,
+          top: true,
+          capabilities: gptModel.capabilities || [],
+          contextWindow: gptModel.context_window || 400000
+        });
+      } else {
+        // Fallback if GPT model not found in API
+        models.push({
+          id: 'gpt-5-mini',
+          label: 'GPT-5 Mini',
+          requiresSubscription: false,
+          priority: 85,
+          recommended: false,
+          top: true,
+          capabilities: ['chat', 'function_calling', 'structured_output'],
+          contextWindow: 400000
+        });
       }
     }
     
