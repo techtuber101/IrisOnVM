@@ -8,7 +8,7 @@ import { FileUploadHandler } from './file-upload-handler';
 import { VoiceRecorder } from './voice-recorder';
 import { UnifiedConfigMenu } from './unified-config-menu';
 import { SubscriptionStatus } from '@/lib/stores/model-store';
-import { canAccessModel } from './_use-model-selection-new';
+import { canAccessModel } from './_use-model-selection';
 import { isLocalMode } from '@/lib/config';
 import { TooltipContent } from '@/components/ui/tooltip';
 import { Tooltip } from '@/components/ui/tooltip';
