@@ -11,6 +11,7 @@ from core.sandbox.sandbox import create_sandbox, delete_sandbox
 
 from .api_models import CreateThreadResponse, MessageCreateRequest
 from . import core_utils as utils
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -433,5 +434,61 @@ async def delete_message(
         await client.table('messages').delete().eq('message_id', message_id).eq('is_llm_message', True).eq('thread_id', thread_id).execute()
         return {"message": "Message deleted successfully"}
     except Exception as e:
-        logger.error(f"Error deleting message {message_id} from thread {thread_id}: {str(e)}")
+        logger.error(f"Error deleting message {message_id} from thread {thread_id}: {str(e)}")                                                                        
         raise HTTPException(status_code=500, detail=f"Failed to delete message: {str(e)}")
+
+class GenerateTitleRequest(BaseModel):
+    message: str
+
+class GenerateTitleResponse(BaseModel):
+    title: str
+
+@router.post("/threads/generate-title", response_model=GenerateTitleResponse)
+async def generate_thread_title(
+    request: GenerateTitleRequest,
+    user_id: str = Depends(verify_and_get_user_id_from_jwt)
+):
+    """Generate a title for a thread based on the first message."""
+    try:
+        logger.debug(f"Generating title for message: {request.message[:100]}...")
+        
+        # Use the same logic as the backend title generation
+        model_name = "gemini/gemini-2.5-flash-lite"
+        
+        system_prompt = """You are a helpful assistant that generates extremely concise titles (2-4 words maximum) for chat threads based on the user's message. Respond with only the title, no other text or punctuation."""
+        
+        user_message = f"Generate an extremely brief title (2-4 words only) for a chat thread that starts with this message: \"{request.message}\""
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
+        
+        logger.debug(f"Calling LLM ({model_name}) for title generation.")
+        response = await utils.make_llm_api_call(
+            messages=messages, 
+            model_name=model_name, 
+            max_tokens=20, 
+            temperature=0.7
+        )
+        
+        generated_title = None
+        
+        if response and response.get('choices'):
+            raw_content = response['choices'][0]['message'].get('content', '').strip()
+            if raw_content:
+                generated_title = raw_content.strip('\'" \n\t')
+                logger.debug(f"LLM generated title: '{generated_title}'")
+        
+        if not generated_title:
+            logger.warning(f"Failed to get valid response from LLM for title generation. Response: {response}")
+            # Fallback to truncated message
+            generated_title = request.message.strip()[:50]
+            if len(request.message.strip()) > 50:
+                generated_title += "..."
+        
+        return GenerateTitleResponse(title=generated_title)
+        
+    except Exception as e:
+        logger.error(f"Error generating thread title: {str(e)}")
+        # Fallback to truncated message
+        fallback_title = request.message.strip()[:50]
+        if len(request.message.strip()) > 50:
+            fallback_title += "..."
+        return GenerateTitleResponse(title=fallback_title)
