@@ -310,8 +310,8 @@ export function AgentModelSelector({
     const accessible = isCustom ? true : (isLocalMode() || canAccessModel(model.id));
     const isHighlighted = index === highlightedIndex;
     const isPremium = model.requiresSubscription;
-    const isLowQuality = MODELS[model.id]?.lowQuality || false;
-    const isRecommended = MODELS[model.id]?.recommended || false;
+    const isLowQuality = false; // Remove MODELS dependency
+    const isRecommended = model.recommended || false;
 
     return (
       <Tooltip key={`model-${model.id}-${index}`}>
