@@ -408,14 +408,14 @@ export function AgentModelSelector({
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="relative flex items-center justify-center">
                         <Cpu className="h-4 w-4" />
-                        {MODELS[selectedModel]?.lowQuality && (
+                        {false && ( // Remove MODELS dependency - no low quality models currently
                           <AlertTriangle className="h-2.5 w-2.5 text-amber-500 absolute -top-1 -right-1" />
                         )}
                       </div>
                       <span className="truncate">{selectedModelDisplay}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {MODELS[selectedModel]?.recommended && (
+                      {false && ( // Remove MODELS dependency - use model.recommended instead
                         <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium">
                           Recommended
                         </span>
