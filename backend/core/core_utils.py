@@ -188,7 +188,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         db_conn = DBConnection()
         client = await db_conn.client
 
-        model_name = "gemini/gemini-2.5-flash-lite"
+        model_name = "gemini/gemini-2.5-flash"
         
         # Use pre-loaded Lucide React icons (loaded once at module level)
         relevant_icons = RELEVANT_ICONS
