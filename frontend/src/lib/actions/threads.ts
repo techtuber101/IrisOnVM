@@ -28,7 +28,7 @@ export const generateThreadName = async (message: string): Promise<string> => {
     console.log('✅ [TITLE GENERATION] API key found, length:', apiKey.length);
 
     const requestBody = {
-      model: 'gpt-5-nano',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',

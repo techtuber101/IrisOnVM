@@ -190,7 +190,7 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         db_conn = DBConnection()
         client = await db_conn.client
 
-        model_name = "openai/gpt-5-nano"
+        model_name = "gemini/gemini-2.5-flash"
         logger.info(f"🤖 [BACKEND TITLE GENERATION] Using model: {model_name}")
         
         # Use pre-loaded Lucide React icons (loaded once at module level)
