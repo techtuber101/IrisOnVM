@@ -435,7 +435,7 @@ export function AgentModelSelector({
                   >
                     <div className="relative flex items-center justify-center">
                       <Cpu className="h-4 w-4" />
-                      {MODELS[selectedModel]?.lowQuality && (
+                      {false && ( // Remove MODELS dependency - no low quality models currently
                         <AlertTriangle className="h-2.5 w-2.5 text-amber-500 absolute -top-1 -right-1" />
                       )}
                     </div>
