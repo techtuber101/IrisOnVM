@@ -764,22 +764,13 @@ When using the tools:
                         if not auto_continue:
                             break
                     except Exception as e:
-                        if ("AnthropicException - Overloaded" in str(e)):
-                            logger.error(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}", exc_info=True)
-                            nonlocal llm_model
-                            # Remove "-20250514" from the model name if present
-                            model_name_cleaned = llm_model.replace("-20250514", "")
-                            llm_model = f"openrouter/{model_name_cleaned}"
-                            auto_continue = True
-                            continue # Continue the loop
-                        else:
-                            # If there's any other exception, log it, yield an error status, and stop execution
-                            logger.error(f"Error in auto_continue_wrapper generator: {str(e)}", exc_info=True)
-                            yield {
-                                "type": "status",
-                                "status": "error",
-                                "message": f"Error in thread processing: {str(e)}"
-                            }
+                        # Do not fall back to other providers/models; surface the error
+                        logger.error(f"Error in auto_continue_wrapper generator: {str(e)}", exc_info=True)
+                        yield {
+                            "type": "status",
+                            "status": "error",
+                            "message": f"Error in thread processing: {str(e)}"
+                        }
                         return  # Exit the generator on any error
                 except Exception as outer_e:
                     # Catch exceptions from _run_once itself

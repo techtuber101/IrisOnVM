@@ -820,16 +820,9 @@ async def run_agent(
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None
 ):
-    effective_model = model_name
-    is_tier_default = model_name in ["Gemini 2.5 Flash", "Claude Sonnet 4", "gemini/gemini-2.5-flash"]
-    
-    if is_tier_default and agent_config and agent_config.get('model'):
-        effective_model = agent_config['model']
-        logger.debug(f"Using model from agent config: {effective_model} (tier default was {model_name})")
-    elif not is_tier_default:
-        logger.debug(f"Using user-selected model: {effective_model}")
-    else:
-        logger.debug(f"Using tier default model: {effective_model}")
+    # Force Gemini 2.5 Flash for all agent runs regardless of inputs/config
+    effective_model = "gemini/gemini-2.5-flash"
+    logger.debug(f"Forcing agent model to {effective_model}")
     
     config = AgentConfig(
         thread_id=thread_id,

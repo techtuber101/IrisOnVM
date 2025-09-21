@@ -74,19 +74,12 @@ def setup_api_keys() -> None:
 
 def setup_provider_router(openai_compatible_api_key: str = None, openai_compatible_api_base: str = None):
     global provider_router
+    # Restrict routing strictly to Gemini 2.5 Flash only
     model_list = [
         {
-            "model_name": "openai-compatible/*", # support OpenAI-Compatible LLM provider
+            "model_name": "gemini/gemini-2.5-flash",
             "litellm_params": {
-                "model": "openai/*",
-                "api_key": openai_compatible_api_key or config.OPENAI_COMPATIBLE_API_KEY,
-                "api_base": openai_compatible_api_base or config.OPENAI_COMPATIBLE_API_BASE,
-            },
-        },
-        {
-            "model_name": "*", # supported LLM provider by LiteLLM
-            "litellm_params": {
-                "model": "*",
+                "model": "gemini/gemini-2.5-flash",
             },
         },
     ]
@@ -94,34 +87,7 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
 
 
 def get_openrouter_fallback(model_name: str) -> Optional[str]:
-    """Get OpenRouter fallback model for a given model name."""
-    # Skip if already using OpenRouter
-    if model_name.startswith("openrouter/"):
-        return None
-    
-    # Map models to their OpenRouter equivalents
-    fallback_mapping = {
-        "anthropic/claude-3-7-sonnet-latest": "openrouter/anthropic/claude-3.7-sonnet",
-        "anthropic/claude-sonnet-4-20250514": "openrouter/anthropic/claude-sonnet-4",
-        "xai/grok-4": "openrouter/x-ai/grok-4",
-        "gemini/gemini-2.5-pro": "openrouter/google/gemini-2.5-pro",
-    }
-    
-    # Check for exact match first
-    if model_name in fallback_mapping:
-        return fallback_mapping[model_name]
-    
-    # Check for partial matches (e.g., bedrock models)
-    for key, value in fallback_mapping.items():
-        if key in model_name:
-            return value
-    
-    # Default fallbacks by provider
-    if "claude" in model_name.lower() or "anthropic" in model_name.lower():
-        return "openrouter/anthropic/claude-sonnet-4"
-    elif "xai" in model_name.lower() or "grok" in model_name.lower():
-        return "openrouter/x-ai/grok-4"
-    
+    """Fallbacks disabled: always return None to force Gemini only."""
     return None
 
 def _configure_token_limits(params: Dict[str, Any], model_name: str, max_tokens: Optional[int]) -> None:
@@ -231,14 +197,8 @@ def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking
         logger.info(f"xAI thinking enabled with reasoning_effort='{effort_level}'")
 
 def _add_fallback_model(params: Dict[str, Any], model_name: str, messages: List[Dict[str, Any]]) -> None:
-    """Add fallback model to the parameters."""
-    fallback_model = get_openrouter_fallback(model_name)
-    if fallback_model:
-        params["fallbacks"] = [{
-            "model": fallback_model,
-            "messages": messages,
-        }]
-        logger.debug(f"Added OpenRouter fallback for model: {model_name} to {fallback_model}")
+    """No-op: fallbacks are disabled."""
+    return
 
 def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any]]], tool_choice: str) -> None:
     """Add tools configuration to parameters."""
