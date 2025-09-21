@@ -754,7 +754,7 @@ export const startAgent = async (
     }
 
     const defaultOptions = {
-      model_name: 'claude-3-7-sonnet-latest',
+      model_name: 'gemini-2.5-flash',
       enable_thinking: false,
       reasoning_effort: 'low',
       stream: true,

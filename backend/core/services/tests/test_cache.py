@@ -65,7 +65,7 @@ class TestLLMCaching:
     @pytest.mark.llm
     @pytest.mark.skipif(not config.ANTHROPIC_API_KEY, reason="No Anthropic API key")
     async def test_anthropic_claude_sonnet_caching(self, long_context):
-        model_name = "claude-3-5-sonnet-latest"
+        model_name = "gemini-2.5-flash"
         messages = self.format_messages_for_provider("anthropic", long_context)
         
         response1 = await make_llm_api_call(
@@ -99,7 +99,7 @@ class TestLLMCaching:
     @pytest.mark.llm
     @pytest.mark.skipif(not config.OPENAI_API_KEY, reason="No OpenAI API key")
     async def test_openai_gpt4_mini_caching(self, long_context):
-        model_name = "gpt-4o-mini"
+        model_name = "gemini-2.5-flash"
         messages = self.format_messages_for_provider("openai", long_context)
         
         start_time1 = time.time()

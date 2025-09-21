@@ -130,7 +130,7 @@ def is_cache_supported(model_name: str) -> bool:
     ]
     
     streaming_cache_ok = [
-        'gpt-5', 'gpt-5-mini',
+        'gemini-2.5-flash', 'gemini-2.5-flash-lite',
         'deepseek',
         'gemini'
     ]

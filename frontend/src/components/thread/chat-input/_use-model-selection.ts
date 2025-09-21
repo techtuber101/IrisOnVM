@@ -43,67 +43,12 @@ export interface CustomModel {
 }
 
 export const MODELS = {
-  'claude-sonnet-4': { 
+  'gemini-2.5-flash': { 
     tier: 'none',
     priority: 100, 
     recommended: true,
     lowQuality: false
-  },
-  'gpt-5': { 
-    tier: 'premium', 
-    priority: 99,
-    recommended: false,
-    lowQuality: false
-  },
-  'google/gemini-2.5-pro': { 
-    tier: 'premium', 
-    priority: 96,
-    recommended: false,
-    lowQuality: false
-  },
-  'grok-4': { 
-    tier: 'premium', 
-    priority: 94,
-    recommended: false,
-    lowQuality: false
-  },
-  'sonnet-3.7': { 
-    tier: 'premium', 
-    priority: 93, 
-    recommended: false,
-    lowQuality: false
-  },
-  'sonnet-3.5': { 
-    tier: 'premium', 
-    priority: 90,
-    recommended: false,
-    lowQuality: false
-  },
-
-  'moonshotai/kimi-k2': { 
-    tier: 'none', 
-    priority: 100,
-    recommended: true,
-    lowQuality: false
-  },
-  'deepseek': { 
-    tier: 'none', 
-    priority: 95,
-    recommended: false,
-    lowQuality: false
-  },
-  'qwen3': { 
-    tier: 'none', 
-    priority: 90,
-    recommended: false,
-    lowQuality: false
-  },
-  'gpt-5-mini': { 
-    tier: 'none', 
-    priority: 85,
-    recommended: false,
-    lowQuality: false
-  },
+  }
 };
 
 export const canAccessModel = (
@@ -349,7 +294,7 @@ export const useModelSelectionOld = () => {
       // Fallback to default model
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
       console.log('🔧 useModelSelection: Using default model:', defaultModel);
-      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Default:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Default:', subscriptionStatus === 'active' ? 'PREMIUM (Gemini 2.5 Flash)' : 'FREE (Gemini 2.5 Flash)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
@@ -358,7 +303,7 @@ export const useModelSelectionOld = () => {
       console.warn('❌ useModelSelection: Failed to load preferences from localStorage:', error);
       const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
       console.log('🔧 useModelSelection: Using fallback default model:', defaultModel);
-      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Fallback:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
+      console.log('🔧 useModelSelection: Subscription status:', subscriptionStatus, '-> Fallback:', subscriptionStatus === 'active' ? 'PREMIUM (Gemini 2.5 Flash)' : 'FREE (Gemini 2.5 Flash)');
       setSelectedModel(defaultModel);
       saveModelPreference(defaultModel);
       setHasInitialized(true);
@@ -416,7 +361,7 @@ export const useModelSelectionOld = () => {
       if (!isAccessible) {
         console.warn('⚠️ useModelSelection: Current model no longer accessible, switching to default');
         const defaultModel = subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
-        console.log('🔧 useModelSelection: Subscription-based default switch:', subscriptionStatus === 'active' ? 'PREMIUM (Claude Sonnet 4)' : 'FREE (KIMi K2)');
+        console.log('🔧 useModelSelection: Subscription-based default switch:', subscriptionStatus === 'active' ? 'PREMIUM (Gemini 2.5 Flash)' : 'FREE (Gemini 2.5 Flash)');
         setSelectedModel(defaultModel);
         saveModelPreference(defaultModel);
       } else {
@@ -503,7 +448,7 @@ export const useModelSelectionOld = () => {
       console.log('  isLoadingModels:', isLoadingModels);
       console.log('  localStorage value:', localStorage.getItem(STORAGE_KEY_MODEL));
       console.log('  localStorage test passes:', testLocalStorage());
-      console.log('  defaultModel would be:', subscriptionStatus === 'active' ? `${DEFAULT_PREMIUM_MODEL_ID} (Claude Sonnet 4)` : `${DEFAULT_FREE_MODEL_ID} (KIMi K2)`);
+      console.log('  defaultModel would be:', subscriptionStatus === 'active' ? `${DEFAULT_PREMIUM_MODEL_ID} (Gemini 2.5 Flash)` : `${DEFAULT_FREE_MODEL_ID} (Gemini 2.5 Flash)`);
       console.log('  availableModels:', availableModels.map(m => ({ id: m.id, requiresSubscription: m.requiresSubscription })));
     }
   };

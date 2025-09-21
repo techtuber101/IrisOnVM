@@ -561,7 +561,7 @@ class AgentRunner:
         logger.debug(f"get_max_tokens called with: '{self.config.model_name}' (type: {type(self.config.model_name)})")
         if "sonnet" in self.config.model_name.lower():
             return 8192
-        elif "gpt-4" in self.config.model_name.lower():
+        elif "gemini" in self.config.model_name.lower():
             return 4096
         elif "gemini-2.5-pro" in self.config.model_name.lower():
             return 64000
