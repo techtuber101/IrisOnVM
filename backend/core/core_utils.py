@@ -183,12 +183,15 @@ async def get_agent_run_with_access_check(client, agent_run_id: str, user_id: st
 
 async def generate_and_update_project_name(project_id: str, prompt: str):
     """Generates a project name and icon using an LLM and updates the database."""
-    logger.debug(f"Starting background task to generate name and icon for project: {project_id}")
+    logger.info(f"🎯 [BACKEND TITLE GENERATION] Starting title generation for project: {project_id}")
+    logger.info(f"🎯 [BACKEND TITLE GENERATION] Prompt details: length={len(prompt)}, preview='{prompt[:100]}{'...' if len(prompt) > 100 else ''}'")
+    
     try:
         db_conn = DBConnection()
         client = await db_conn.client
 
-        model_name = "gemini/gemini-2.5-flash"
+        model_name = "openai/gpt-5-nano"
+        logger.info(f"🤖 [BACKEND TITLE GENERATION] Using model: {model_name}")
         
         # Use pre-loaded Lucide React icons (loaded once at module level)
         relevant_icons = RELEVANT_ICONS
@@ -207,6 +210,15 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
         user_message = f"Generate an extremely brief title (2-4 words only) and select the most appropriate icon for a chat thread that starts with this message: \"{prompt}\""
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}]
 
+        logger.info(f"📤 [BACKEND TITLE GENERATION] Making LLM API call with parameters:")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - Model: {model_name}")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - Messages count: {len(messages)}")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - Max tokens: 1000")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - Temperature: 0.7")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - Response format: JSON object")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - System prompt length: {len(system_prompt)}")
+        logger.info(f"📤 [BACKEND TITLE GENERATION] - User message length: {len(user_message)}")
+
         logger.debug(f"Calling LLM ({model_name}) for project {project_id} naming and icon selection.")
         response = await make_llm_api_call(
             messages=messages, 
@@ -216,61 +228,95 @@ async def generate_and_update_project_name(project_id: str, prompt: str):
             response_format={"type": "json_object"}
         )
 
+        logger.info(f"📥 [BACKEND TITLE GENERATION] Received LLM response:")
+        logger.info(f"📥 [BACKEND TITLE GENERATION] - Response type: {type(response)}")
+        logger.info(f"📥 [BACKEND TITLE GENERATION] - Has response: {response is not None}")
+        if response:
+            logger.info(f"📥 [BACKEND TITLE GENERATION] - Response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
+            logger.info(f"📥 [BACKEND TITLE GENERATION] - Has choices: {'choices' in response if isinstance(response, dict) else False}")
+            if isinstance(response, dict) and 'choices' in response:
+                logger.info(f"📥 [BACKEND TITLE GENERATION] - Choices count: {len(response['choices'])}")
+                if response['choices']:
+                    logger.info(f"📥 [BACKEND TITLE GENERATION] - First choice keys: {list(response['choices'][0].keys()) if isinstance(response['choices'][0], dict) else 'Not a dict'}")
+        else:
+            logger.warning(f"❌ [BACKEND TITLE GENERATION] Response is None or empty")
+
         generated_name = None
         selected_icon = None
         
         if response and response.get('choices') and response['choices'][0].get('message'):
             raw_content = response['choices'][0]['message'].get('content', '').strip()
+            logger.info(f"📊 [BACKEND TITLE GENERATION] Raw content from LLM: '{raw_content}'")
+            logger.info(f"📊 [BACKEND TITLE GENERATION] Raw content length: {len(raw_content)}")
+            
             try:
                 parsed_response = json.loads(raw_content)
+                logger.info(f"🎉 [BACKEND TITLE GENERATION] Successfully parsed JSON: {parsed_response}")
                 
                 if isinstance(parsed_response, dict):
                     # Extract title
                     title = parsed_response.get('title', '').strip()
                     if title:
                         generated_name = title.strip('\'" \n\t')
-                        logger.debug(f"LLM generated name for project {project_id}: '{generated_name}'")
+                        logger.info(f"✅ [BACKEND TITLE GENERATION] LLM generated name: '{generated_name}'")
+                    else:
+                        logger.warning(f"⚠️ [BACKEND TITLE GENERATION] No title found in parsed response")
                     
                     # Extract icon
                     icon = parsed_response.get('icon', '').strip()
                     if icon and icon in relevant_icons:
                         selected_icon = icon
-                        logger.debug(f"LLM selected icon for project {project_id}: '{selected_icon}'")
+                        logger.info(f"✅ [BACKEND TITLE GENERATION] LLM selected icon: '{selected_icon}'")
                     else:
-                        logger.warning(f"LLM selected invalid icon '{icon}' for project {project_id}, using default 'message-circle'")
+                        logger.warning(f"⚠️ [BACKEND TITLE GENERATION] Invalid icon '{icon}' for project {project_id}, using default 'message-circle'")
                         selected_icon = "message-circle"
                 else:
-                    logger.warning(f"LLM returned non-dict JSON for project {project_id}: {parsed_response}")
+                    logger.warning(f"⚠️ [BACKEND TITLE GENERATION] LLM returned non-dict JSON: {parsed_response}")
                     
             except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse LLM JSON response for project {project_id}: {e}. Raw content: {raw_content}")
+                logger.error(f"❌ [BACKEND TITLE GENERATION] Failed to parse LLM JSON response: {e}")
+                logger.error(f"❌ [BACKEND TITLE GENERATION] Raw content that failed to parse: '{raw_content}'")
                 # Fallback to extracting title from raw content
                 cleaned_content = raw_content.strip('\'" \n\t{}')
                 if cleaned_content:
                     generated_name = cleaned_content[:50]  # Limit fallback title length
                     selected_icon = "message-circle"  # Default icon
+                    logger.info(f"🔧 [BACKEND TITLE GENERATION] Using fallback title: '{generated_name}'")
         else:
-            logger.warning(f"Failed to get valid response from LLM for project {project_id} naming. Response: {response}")
+            logger.error(f"❌ [BACKEND TITLE GENERATION] Failed to get valid response from LLM. Response structure: {response}")
+
+        logger.info(f"📋 [BACKEND TITLE GENERATION] Final results:")
+        logger.info(f"📋 [BACKEND TITLE GENERATION] - Generated name: '{generated_name}'")
+        logger.info(f"📋 [BACKEND TITLE GENERATION] - Selected icon: '{selected_icon}'")
 
         if generated_name:
             # Store title and icon in dedicated fields
             update_data = {"name": generated_name}
             if selected_icon:
                 update_data["icon_name"] = selected_icon
-                logger.debug(f"Storing project {project_id} with title: '{generated_name}' and icon: '{selected_icon}'")
+                logger.info(f"💾 [BACKEND TITLE GENERATION] Storing project {project_id} with title: '{generated_name}' and icon: '{selected_icon}'")
             else:
-                logger.debug(f"Storing project {project_id} with title: '{generated_name}' (no icon)")
+                logger.info(f"💾 [BACKEND TITLE GENERATION] Storing project {project_id} with title: '{generated_name}' (no icon)")
             
+            logger.info(f"💾 [BACKEND TITLE GENERATION] Update data: {update_data}")
             update_result = await client.table('projects').update(update_data).eq("project_id", project_id).execute()
+            
             if hasattr(update_result, 'data') and update_result.data:
-                logger.debug(f"Successfully updated project {project_id} with clean title and dedicated icon field")
+                logger.info(f"✅ [BACKEND TITLE GENERATION] Successfully updated project {project_id} in database")
+                logger.info(f"✅ [BACKEND TITLE GENERATION] Update result data: {update_result.data}")
             else:
-                logger.error(f"Failed to update project {project_id} in database. Update result: {update_result}")
+                logger.error(f"❌ [BACKEND TITLE GENERATION] Failed to update project {project_id} in database")
+                logger.error(f"❌ [BACKEND TITLE GENERATION] Update result: {update_result}")
         else:
-            logger.warning(f"No generated name, skipping database update for project {project_id}.")
+            logger.warning(f"⚠️ [BACKEND TITLE GENERATION] No generated name, skipping database update for project {project_id}.")
 
     except Exception as e:
-        logger.error(f"Error in background naming task for project {project_id}: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] Unexpected error in generate_and_update_project_name:")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] - Error type: {type(e).__name__}")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] - Error message: {str(e)}")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] - Project ID: {project_id}")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] - Prompt preview: '{prompt[:100]}{'...' if len(prompt) > 100 else ''}'")
+        logger.error(f"💥 [BACKEND TITLE GENERATION] - Full traceback:", exc_info=True)
     finally:
         # No need to disconnect DBConnection singleton instance here
         logger.debug(f"Finished background naming and icon selection task for project: {project_id}")

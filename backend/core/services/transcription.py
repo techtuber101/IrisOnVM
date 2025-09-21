@@ -56,7 +56,7 @@ async def transcribe_audio(
             # OpenAI Whisper API has built-in limits: 25MB file size and handles duration limits internally
             with open(temp_file_path, 'rb') as f:
                 transcription = client.audio.transcriptions.create(
-                    model="gemini-2.5-flash",
+                    model="gpt-4o-mini-transcribe",
                     file=f,
                     response_format="text"
                 )
