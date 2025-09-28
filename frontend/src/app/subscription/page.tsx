@@ -131,12 +131,7 @@ export default function SubscriptionRequiredPage() {
               : 'A subscription is required to use Iris. Choose the plan that works best for you.'}
           </p>
         </div>
-        <PricingSection 
-          returnUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/dashboard?subscription=activated`}
-          showTitleAndTabs={false}
-          onSubscriptionUpdate={handleSubscriptionUpdate}
-          showInfo={false}
-        />
+        <PricingSection />
         <div className="text-center text-sm text-muted-foreground -mt-10">
           <p>
             Questions? Contact us at{' '}
