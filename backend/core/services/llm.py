@@ -158,6 +158,35 @@ def get_openrouter_fallback(model_name: str) -> Optional[str]:
         return "gemini/gemini-2.5-flash"
     return None
 
+
+def _build_fallback_chain(model_name: str) -> List[str]:
+    """Construct an ordered, de-duplicated fallback chain for a model."""
+    from core.ai_models import model_manager
+
+    resolved = model_manager.resolve_model_id(model_name)
+    if not resolved:
+        return []
+
+    chain: List[str] = []
+    seen = set()
+    current = resolved
+
+    while current and current not in seen:
+        chain.append(current)
+        seen.add(current)
+
+        fallback_candidate = get_openrouter_fallback(current)
+        if not fallback_candidate:
+            break
+
+        resolved_fallback = model_manager.resolve_model_id(fallback_candidate)
+        if not resolved_fallback:
+            break
+
+        current = resolved_fallback
+
+    return chain
+
 def _configure_token_limits(params: Dict[str, Any], model_name: str, max_tokens: Optional[int]) -> None:
     """Configure token limits based on model type."""
     if max_tokens is None:
@@ -266,10 +295,10 @@ def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking
 
 def _add_fallback_model(params: Dict[str, Any], model_name: str, messages: List[Dict[str, Any]]) -> None:
     """Add fallback models to parameters for retry logic."""
-    fallback_models = get_openrouter_fallback(model_name)
-    if fallback_models:
-        params["fallbacks"] = [fallback_models]
-        logger.debug(f"Added fallback model {fallback_models} for {model_name}")
+    fallback_chain = _build_fallback_chain(model_name)
+    if len(fallback_chain) > 1:
+        params["fallbacks"] = fallback_chain[1:]
+        logger.debug(f"Added fallback models {fallback_chain[1:]} for {model_name}")
 
 def _classify_error(error: Exception) -> LLMError:
     """Classify LiteLLM errors into specific error types."""
@@ -470,85 +499,85 @@ async def make_llm_api_call_with_fallback(
     reasoning_effort: Optional[str] = "low",
 ) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
     """
-    Make an LLM API call with comprehensive fallback and error handling.
-    
-    This function implements a robust fallback chain:
-    1. Primary model (Gemini 2.5 Flash) with retries
-    2. Fallback to GPT-5 Mini
-    3. Fallback to GPT-5
-    4. Final fallback to Gemini 2.5 Flash
-    
-    Includes circuit breaker, health checks, and graceful degradation.
+    Make an LLM API call with retries and dynamic fallbacks.
+
+    The fallback chain is built from the requested model using
+    `_build_fallback_chain` (e.g. Gemini → GPT-5 Mini → GPT-5 → Gemini).
+    Each model in the chain is attempted in order, with exponential backoff
+    retries for the first model before moving on to the next fallback.
     """
-    from core.ai_models import model_manager
-    resolved_model_name = model_manager.resolve_model_id(model_name)
-    
-    # Define fallback chain
-    fallback_chain = [
-        resolved_model_name,
-        "openai/gpt-5-mini",
-        "openai/gpt-5",
-        "gemini/gemini-2.5-flash"
-    ]
-    
+    fallback_chain = _build_fallback_chain(model_name)
+
+    if not fallback_chain:
+        raise LLMRetryError(f"No valid models available for requested model '{model_name}'")
+
+    chain_display = " → ".join(fallback_chain)
+    logger.info(f"📡 API Call: Fallback chain prepared: {chain_display}")
+
     last_error = None
-    
-    for i, current_model in enumerate(fallback_chain):
-        try:
-            logger.info(f"🔄 Attempting model {i+1}/{len(fallback_chain)}: {current_model}")
-            
-            # Skip if model is unhealthy or circuit breaker is open
-            if _should_skip_model(current_model):
-                logger.warning(f"⚠️ Skipping {current_model} due to health/circuit breaker status")
-                continue
-            
-            # Make the API call
-            response = await make_llm_api_call(
-                messages=messages,
-                model_name=current_model,
-                response_format=response_format,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                tools=tools,
-                tool_choice=tool_choice,
-                api_key=api_key,
-                api_base=api_base,
-                stream=stream,
-                top_p=top_p,
-                model_id=model_id,
-                enable_thinking=enable_thinking,
-                reasoning_effort=reasoning_effort,
-            )
-            
-            # Success - record and return
-            _record_success(current_model)
-            logger.info(f"✅ Successfully completed request with {current_model}")
-            return response
-            
-        except (LLMTimeoutError, LLMRateLimitError, LLMServiceUnavailableError) as e:
-            # These errors should trigger fallback
-            last_error = e
-            logger.warning(f"⚠️ {current_model} failed with {type(e).__name__}: {e}")
+    for index, current_model in enumerate(fallback_chain):
+        if _should_skip_model(current_model):
+            logger.warning(f"⚠️ Skipping {current_model} due to health/circuit breaker status")
             continue
-            
-        except (LLMAuthenticationError, LLMQuotaExceededError) as e:
-            # These errors should not trigger fallback (likely account issues)
-            logger.error(f"🚨 Critical error with {current_model}: {e}")
-            raise e
-            
-        except Exception as e:
-            # Unexpected errors
-            last_error = e
-            logger.error(f"❌ Unexpected error with {current_model}: {e}")
-            continue
-    
+
+        attempts = PRIMARY_MODEL_RETRIES if index == 0 else 1
+
+        for attempt in range(1, attempts + 1):
+            try:
+                logger.info(
+                    f"🔄 Attempting model {current_model} (attempt {attempt}/{attempts}, position {index + 1}/{len(fallback_chain)})"
+                )
+
+                response = await _make_llm_api_call(
+                    messages=messages,
+                    model_name=current_model,
+                    response_format=response_format,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    api_key=api_key,
+                    api_base=api_base,
+                    stream=stream,
+                    top_p=top_p,
+                    model_id=model_id,
+                    enable_thinking=enable_thinking,
+                    reasoning_effort=reasoning_effort,
+                )
+
+                _record_success(current_model)
+                logger.info(f"✅ Successfully completed request with {current_model}")
+                return response
+
+            except (LLMTimeoutError, LLMRateLimitError, LLMServiceUnavailableError) as e:
+                last_error = e
+                if attempt < attempts:
+                    backoff = min(4, 2 ** (attempt - 1))
+                    logger.warning(
+                        f"⚠️ {current_model} attempt {attempt} failed with {type(e).__name__}: {e}. Retrying in {backoff}s"
+                    )
+                    await asyncio.sleep(backoff)
+                    continue
+
+                logger.warning(f"⚠️ {current_model} failed with {type(e).__name__}: {e}")
+                break
+
+            except (LLMAuthenticationError, LLMQuotaExceededError) as e:
+                logger.error(f"🚨 Critical error with {current_model}: {e}")
+                raise e
+
+            except Exception as e:
+                last_error = e
+                logger.error(f"❌ Unexpected error with {current_model}: {e}")
+                break
+
     # All models failed
     if last_error:
         raise LLMRetryError(f"All models in fallback chain failed. Last error: {last_error}")
     else:
         raise LLMRetryError("All models in fallback chain failed with no specific error")
 
-async def make_llm_api_call(
+async def _make_llm_api_call(
     messages: List[Dict[str, Any]],
     model_name: str,
     response_format: Optional[Any] = None,
@@ -565,7 +594,7 @@ async def make_llm_api_call(
     reasoning_effort: Optional[str] = "low",
 ) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
     """
-    Make an API call to a language model using LiteLLM.
+    Make a single API call to a language model using LiteLLM.
 
     Args:
         messages: List of message dictionaries for the conversation
@@ -595,7 +624,7 @@ async def make_llm_api_call(
     
     # debug <timestamp>.json messages
     logger.debug(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
-    logger.info(f"📡 API Call: Using primary model {model_name} with fallback chain: GPT-5 Mini → GPT-5 → Gemini 2.5 Flash")
+    logger.info(f"📡 API Call: Using model {model_name}")
 
     logger.info(f"📥 Received {len(messages)} messages for LLM call")
     for i, msg in enumerate(messages):
@@ -690,11 +719,47 @@ async def make_llm_api_call(
         classified_error = _classify_error(e)
         _record_failure(resolved_model_name)
         
-        logger.error(f"Primary model {model_name} failed: {str(e)}")
-        logger.info(f"🔄 Fallback mechanism will be triggered by LiteLLM Router")
-        
+        logger.error(f"LLM call to {model_name} failed: {str(e)}")
+        logger.info("🔄 Error will be handled by fallback logic")
+
         # Re-raise the classified error
         raise classified_error
+
+
+async def make_llm_api_call(
+    messages: List[Dict[str, Any]],
+    model_name: str,
+    response_format: Optional[Any] = None,
+    temperature: float = 0,
+    max_tokens: Optional[int] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
+    tool_choice: str = "auto",
+    api_key: Optional[str] = None,
+    api_base: Optional[str] = None,
+    stream: bool = False,
+    top_p: Optional[float] = None,
+    model_id: Optional[str] = None,
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = "low",
+) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
+    """Public helper that wraps `_make_llm_api_call` with resilient fallbacks."""
+
+    return await make_llm_api_call_with_fallback(
+        messages=messages,
+        model_name=model_name,
+        response_format=response_format,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        tools=tools,
+        tool_choice=tool_choice,
+        api_key=api_key,
+        api_base=api_base,
+        stream=stream,
+        top_p=top_p,
+        model_id=model_id,
+        enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
+    )
 
 setup_api_keys()
 setup_provider_router()

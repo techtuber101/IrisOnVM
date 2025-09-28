@@ -35,8 +35,8 @@ export const AgentLoader = () => {
 
   return (
     <div className="flex py-2 items-center w-full gap-3">
-      <div className="flex items-center gap-1">
-        <div className="h-3 w-3 rounded-full bg-primary/40" 
+      <div className="flex items-center gap-1 ml-3">
+        <div className="h-3 w-3 rounded-full bg-white" 
              style={{
                animation: 'breathe 3s ease-in-out infinite',
                animationDelay: '0s'

@@ -19,6 +19,11 @@ from dramatiq.brokers.redis import RedisBroker
 import os
 from core.services.langfuse import langfuse
 from core.utils.retry import retry
+from redis.exceptions import (
+    ConnectionError as RedisConnectionError,
+    TimeoutError as RedisTimeoutError,
+    BusyLoadingError,
+)
 
 import sentry_sdk
 from typing import Dict, Any
@@ -143,41 +148,103 @@ async def run_agent_background(
     global_control_channel = f"agent_run:{agent_run_id}:control"
     instance_active_key = f"active_run:{instance_id}:{agent_run_id}"
 
+    pubsub = None
+    _PUBSUB_CONNECTION_ERRORS = (
+        RedisConnectionError,
+        RedisTimeoutError,
+        BusyLoadingError,
+        ConnectionResetError,
+        BrokenPipeError,
+    )
+
+    async def _refresh_pubsub(reason: str) -> None:
+        nonlocal pubsub
+
+        if pubsub:
+            try:
+                await pubsub.unsubscribe(instance_control_channel, global_control_channel)
+            except Exception as unsubscribe_err:
+                logger.debug(
+                    f"Error unsubscribing existing pubsub during refresh ({reason}) for {agent_run_id}: {unsubscribe_err}"
+                )
+            try:
+                await pubsub.close()
+            except Exception as close_err:
+                logger.debug(
+                    f"Error closing existing pubsub during refresh ({reason}) for {agent_run_id}: {close_err}"
+                )
+
+        logger.debug(f"Refreshing Redis pubsub for agent run {agent_run_id} due to: {reason}")
+        pubsub = await redis.create_pubsub()
+        await retry(lambda: pubsub.subscribe(instance_control_channel, global_control_channel))
+        logger.debug(
+            f"Subscribed to control channels after refresh: {instance_control_channel}, {global_control_channel}"
+        )
+
     async def check_for_stop_signal():
-        nonlocal stop_signal_received
-        if not pubsub: return
+        nonlocal stop_signal_received, pubsub
+        if not pubsub:
+            return
+
         try:
             while not stop_signal_received:
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
-                if message and message.get("type") == "message":
-                    data = message.get("data")
-                    if isinstance(data, bytes): data = data.decode('utf-8')
-                    if data == "STOP":
-                        logger.debug(f"Received STOP signal for agent run {agent_run_id} (Instance: {instance_id})")
+                try:
+                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+                except _PUBSUB_CONNECTION_ERRORS as conn_err:
+                    logger.warning(
+                        f"Pubsub connection dropped while watching stop signal for {agent_run_id}: {conn_err}"
+                    )
+                    try:
+                        await _refresh_pubsub("reconnect after connection drop")
+                    except Exception as refresh_err:
+                        logger.error(
+                            f"Failed to refresh pubsub after connection drop for {agent_run_id}: {refresh_err}",
+                            exc_info=True,
+                        )
                         stop_signal_received = True
                         break
+                    continue
+                except Exception as get_err:
+                    logger.error(
+                        f"Unexpected error while reading pubsub message for {agent_run_id}: {get_err}",
+                        exc_info=True,
+                    )
+                    stop_signal_received = True
+                    break
+
+                if message and message.get("type") == "message":
+                    data = message.get("data")
+                    if isinstance(data, bytes):
+                        data = data.decode('utf-8')
+                    if data == "STOP":
+                        logger.debug(
+                            f"Received STOP signal for agent run {agent_run_id} (Instance: {instance_id})"
+                        )
+                        stop_signal_received = True
+                        break
+
                 # Periodically refresh the active run key TTL
-                if total_responses % 50 == 0: # Refresh every 50 responses or so
-                    try: await redis.expire(instance_active_key, redis.REDIS_KEY_TTL)
-                    except Exception as ttl_err: logger.warning(f"Failed to refresh TTL for {instance_active_key}: {ttl_err}")
-                await asyncio.sleep(0.1) # Short sleep to prevent tight loop
+                if total_responses % 50 == 0:  # Refresh every ~50 responses
+                    try:
+                        await redis.expire(instance_active_key, redis.REDIS_KEY_TTL)
+                    except Exception as ttl_err:
+                        logger.warning(
+                            f"Failed to refresh TTL for {instance_active_key}: {ttl_err}"
+                        )
+
+                await asyncio.sleep(0.1)  # Short sleep to prevent tight loop
         except asyncio.CancelledError:
-            logger.debug(f"Stop signal checker cancelled for {agent_run_id} (Instance: {instance_id})")
+            logger.debug(
+                f"Stop signal checker cancelled for {agent_run_id} (Instance: {instance_id})"
+            )
         except Exception as e:
             logger.error(f"Error in stop signal checker for {agent_run_id}: {e}", exc_info=True)
-            stop_signal_received = True # Stop the run if the checker fails
+            stop_signal_received = True  # Stop the run if the checker fails
 
     trace = langfuse.trace(name="agent_run", id=agent_run_id, session_id=thread_id, metadata={"project_id": project_id, "instance_id": instance_id})
     try:
         # Setup Pub/Sub listener for control signals
-        pubsub = await redis.create_pubsub()
-        try:
-            await retry(lambda: pubsub.subscribe(instance_control_channel, global_control_channel))
-        except Exception as e:
-            logger.error(f"Redis failed to subscribe to control channels: {e}", exc_info=True)
-            raise e
-
-        logger.debug(f"Subscribed to control channels: {instance_control_channel}, {global_control_channel}")
+        await _refresh_pubsub("initial subscription")
         stop_checker = asyncio.create_task(check_for_stop_signal())
 
         # Ensure active run key exists and has TTL
@@ -197,8 +264,6 @@ async def run_agent_background(
         final_status = "running"
         error_message = None
 
-        pending_redis_operations = []
-
         async for response in agent_gen:
             if stop_signal_received:
                 logger.debug(f"Agent run {agent_run_id} stopped by signal.")
@@ -208,8 +273,8 @@ async def run_agent_background(
 
             # Store response in Redis list and publish notification
             response_json = json.dumps(response)
-            pending_redis_operations.append(asyncio.create_task(redis.rpush(response_list_key, response_json)))
-            pending_redis_operations.append(asyncio.create_task(redis.publish(response_channel, "new")))
+            await redis.rpush(response_list_key, response_json)
+            await redis.publish(response_channel, "new")
             total_responses += 1
 
             # Check for agent-signaled completion or error
@@ -308,12 +373,6 @@ async def run_agent_background(
 
         # Clean up the run lock
         await _cleanup_redis_run_lock(agent_run_id)
-
-        # Wait for all pending redis operations to complete, with timeout
-        try:
-            await asyncio.wait_for(asyncio.gather(*pending_redis_operations), timeout=30.0)
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout waiting for pending Redis operations for {agent_run_id}")
 
         logger.debug(f"Agent run background task fully completed for: {agent_run_id} (Instance: {instance_id}) with final status: {final_status}")
 

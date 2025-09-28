@@ -38,6 +38,7 @@ from core.tools.task_list_tool import TaskListTool
 from core.agentpress.tool import SchemaType
 from core.tools.sb_sheets_tool import SandboxSheetsTool
 # from core.tools.sb_web_dev_tool import SandboxWebDevTool  # DEACTIVATED
+from core.ai_models import model_manager
 from core.tools.sb_upload_file_tool import SandboxUploadFileTool
 from core.tools.sb_docs_tool import SandboxDocsTool
 
@@ -820,9 +821,11 @@ async def run_agent(
     agent_config: Optional[dict] = None,    
     trace: Optional[StatefulTraceClient] = None
 ):
-    # Force Gemini 2.5 Flash for all agent runs regardless of inputs/config
-    effective_model = "gemini/gemini-2.5-flash"
-    logger.debug(f"Forcing agent model to {effective_model}")
+    effective_model = model_manager.resolve_model_id(model_name) if model_name else "gemini/gemini-2.5-flash"
+    if effective_model != model_name:
+        logger.debug(f"Resolved agent model '{model_name}' -> '{effective_model}'")
+    else:
+        logger.debug(f"Using requested agent model: {effective_model}")
     
     config = AgentConfig(
         thread_id=thread_id,

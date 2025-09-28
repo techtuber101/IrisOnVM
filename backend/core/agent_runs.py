@@ -17,6 +17,11 @@ from core.services import redis
 from core.sandbox.sandbox import create_sandbox, delete_sandbox
 from run_agent_background import run_agent_background
 from core.ai_models import model_manager
+from redis.exceptions import (
+    ConnectionError as RedisConnectionError,
+    TimeoutError as RedisTimeoutError,
+    BusyLoadingError,
+)
 
 from .api_models import AgentStartRequest, AgentVersionResponse, AgentResponse, ThreadAgentResponse, InitiateAgentResponse
 from . import core_utils as utils
@@ -504,43 +509,91 @@ async def stream_agent_run(
             await pubsub.subscribe(response_channel, control_channel)
             logger.debug(f"Subscribed to channels: {response_channel}, {control_channel}")
 
+            _PUBSUB_CONNECTION_ERRORS = (
+                RedisConnectionError,
+                RedisTimeoutError,
+                BusyLoadingError,
+                ConnectionResetError,
+                BrokenPipeError,
+            )
+
+            async def _refresh_pubsub(reason: str) -> None:
+                nonlocal pubsub
+
+                if pubsub:
+                    try:
+                        await pubsub.unsubscribe(response_channel, control_channel)
+                    except Exception as unsubscribe_err:
+                        logger.debug(
+                            f"Failed to unsubscribe pubsub during refresh ({reason}) for {agent_run_id}: {unsubscribe_err}"
+                        )
+                    try:
+                        await pubsub.close()
+                    except Exception as close_err:
+                        logger.debug(
+                            f"Failed to close pubsub during refresh ({reason}) for {agent_run_id}: {close_err}"
+                        )
+
+                pubsub = await redis.create_pubsub()
+                await pubsub.subscribe(response_channel, control_channel)
+                logger.debug(
+                    f"Re-subscribed to channels after refresh ({reason}): {response_channel}, {control_channel}"
+                )
+
             # Queue to communicate between listeners and the main generator loop
             message_queue = asyncio.Queue()
 
             async def listen_messages():
-                listener = pubsub.listen()
-                task = asyncio.create_task(listener.__anext__())
+                nonlocal terminate_stream, pubsub
 
                 while not terminate_stream:
-                    done, _ = await asyncio.wait([task], return_when=asyncio.FIRST_COMPLETED)
-                    for finished in done:
+                    try:
+                        message = await pubsub.get_message(
+                            ignore_subscribe_messages=True, timeout=1.0
+                        )
+                    except _PUBSUB_CONNECTION_ERRORS as conn_err:
+                        logger.warning(
+                            f"Pubsub connection dropped for {agent_run_id}, attempting refresh: {conn_err}"
+                        )
                         try:
-                            message = finished.result()
-                            if message and isinstance(message, dict) and message.get("type") == "message":
-                                channel = message.get("channel")
-                                data = message.get("data")
-                                if isinstance(data, bytes):
-                                    data = data.decode('utf-8')
-
-                                if channel == response_channel and data == "new":
-                                    await message_queue.put({"type": "new_response"})
-                                elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
-                                    logger.debug(f"Received control signal '{data}' for {agent_run_id}")
-                                    await message_queue.put({"type": "control", "data": data})
-                                    return  # Stop listening on control signal
-
-                        except StopAsyncIteration:
-                            logger.warning(f"Listener stopped for {agent_run_id}.")
-                            await message_queue.put({"type": "error", "data": "Listener stopped unexpectedly"})
+                            await _refresh_pubsub("reconnect after connection drop")
+                        except Exception as refresh_err:
+                            logger.error(
+                                f"Failed to refresh pubsub for {agent_run_id}: {refresh_err}",
+                                exc_info=True,
+                            )
+                            await message_queue.put(
+                                {"type": "error", "data": "Listener failed to reconnect"}
+                            )
                             return
-                        except Exception as e:
-                            logger.error(f"Error in listener for {agent_run_id}: {e}")
-                            await message_queue.put({"type": "error", "data": "Listener failed"})
+                        continue
+                    except Exception as listener_err:
+                        logger.error(
+                            f"Error in listener for {agent_run_id}: {listener_err}",
+                            exc_info=True,
+                        )
+                        await message_queue.put(
+                            {"type": "error", "data": "Listener failed"}
+                        )
+                        return
+
+                    if not message:
+                        await asyncio.sleep(0.1)
+                        continue
+
+                    if message and isinstance(message, dict) and message.get("type") == "message":
+                        channel = message.get("channel")
+                        data = message.get("data")
+                        if isinstance(data, bytes):
+                            data = data.decode('utf-8')
+
+                        if channel == response_channel and data == "new":
+                            await message_queue.put({"type": "new_response"})
+                        elif channel == control_channel and data in ["STOP", "END_STREAM", "ERROR"]:
+                            logger.debug(f"Received control signal '{data}' for {agent_run_id}")
+                            await message_queue.put({"type": "control", "data": data})
+                            terminate_stream = True
                             return
-                        finally:
-                            # Resubscribe to the next message if continuing
-                            if not terminate_stream:
-                                task = asyncio.create_task(listener.__anext__())
 
 
             listener_task = asyncio.create_task(listen_messages())
@@ -995,4 +1048,3 @@ async def initiate_agent_with_files(
         logger.error(f"Error in agent initiation: {str(e)}\n{traceback.format_exc()}")
         # TODO: Clean up created project/thread if initiation fails mid-way
         raise HTTPException(status_code=500, detail=f"Failed to initiate agent session: {str(e)}")
-

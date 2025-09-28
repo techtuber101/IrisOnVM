@@ -935,8 +935,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         // Show minimal processing indicator when agent is active but no streaming text after preprocessing
                                                                         if (!textToRender && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
                                                                             return (
-                                                                                <div className="flex items-center gap-1 py-1 ">
-                                                                                    <div className="h-3 w-3 rounded-full bg-primary/40" 
+                                                                                <div className="flex items-center gap-1 py-1 ml-3">
+                                                                                    <div className="h-3 w-3 rounded-full bg-white" 
                                                                                          style={{
                                                                                            animation: 'breathe 3s ease-in-out infinite'
                                                                                          }} />
@@ -1103,8 +1103,8 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
 
                                         {/* Streaming indicator content */}
                                         <div className="max-w-[90%] px-4 py-3 text-sm">
-                                            <div className="flex items-center gap-1.5 py-1">
-                                                <div className="h-3 w-3 rounded-full bg-primary/40" 
+                                            <div className="flex items-center gap-1.5 py-1 ml-3">
+                                                <div className="h-3 w-3 rounded-full bg-white" 
                                                      style={{
                                                        animation: 'breathe 3s ease-in-out infinite'
                                                      }} />

@@ -973,13 +973,13 @@
 /* Enhanced breathing animation for loading indicators */
 @keyframes breathe {
   0%, 100% {
-    opacity: 0.4;
+    opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+    box-shadow: none;
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.2);
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+    opacity: 1;
+    transform: scale(1.15);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6), 0 0 16px rgba(255, 255, 255, 0.3);
   }
 }

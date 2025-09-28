@@ -20,6 +20,11 @@ class CreditService:
         return self._client
     
     async def get_balance(self, user_id: str, use_cache: bool = True) -> Decimal:
+        if config.ENV_MODE == EnvMode.LOCAL:
+            # Skip Supabase entirely in local/dev mode and just report a large balance
+            logger.debug(f"LOCAL mode: bypassing credit lookup for user {user_id}")
+            return Decimal('999999')
+
         cache_key = f"credit_balance:{user_id}"
         
         if use_cache and self.cache:
@@ -120,6 +125,14 @@ class CreditService:
         return balance
     
     async def deduct_credits(self, user_id: str, amount: Decimal, description: str = None, reference_id: str = None, reference_type: str = None) -> Dict:
+        if config.ENV_MODE == EnvMode.LOCAL:
+            logger.debug(f"LOCAL mode: skipping credit deduction for user {user_id}")
+            return {
+                'success': True,
+                'new_balance': Decimal('999999'),
+                'transaction_id': None
+            }
+
         try:
             client = await self._get_client()
             result = await client.rpc('deduct_credits', {
@@ -173,6 +186,10 @@ class CreditService:
         description: str = None,
         metadata: Dict = None
     ) -> Decimal:
+        if config.ENV_MODE == EnvMode.LOCAL:
+            logger.debug(f"LOCAL mode: skipping credit addition for user {user_id}")
+            return Decimal('999999')
+
         try:
             client = await self._get_client()
             result = await client.rpc('add_credits', {
