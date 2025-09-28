@@ -590,6 +590,9 @@ async def make_llm_api_call(
         LLMRetryError: If API call fails after retries
         LLMError: For other API-related errors
     """
+    from core.ai_models import model_manager
+    resolved_model_name = model_manager.resolve_model_id(model_name)
+    
     # debug <timestamp>.json messages
     logger.debug(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
     logger.info(f"📡 API Call: Using primary model {model_name} with fallback chain: GPT-5 Mini → GPT-5 → Gemini 2.5 Flash")
