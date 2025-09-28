@@ -25,9 +25,8 @@ import {
 import { useSharedSubscription } from '@/contexts/SubscriptionContext';
 import { SubscriptionStatus } from '@/lib/stores/model-store';
 
-import {
-  UnifiedMessage,
-} from '@/components/thread/types';
+import { UnifiedMessage } from '@/components/thread/types';
+import { safeJsonParse } from '@/components/thread/utils';
 import {
   ApiMessageType,
 } from '@/app/(dashboard)/projects/[projectId]/thread/_types';
@@ -99,6 +98,10 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
   const initialLayoutAppliedRef = useRef(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastStreamStartedRef = useRef<string | null>(null); // Track last runId we started streaming for
+  const autoResumeAttemptsRef = useRef(0);
+  const autoResumeInProgressRef = useRef(false);
+  const lastAutoResumeErrorRef = useRef<string | null>(null);
+  const MAX_AUTO_RESUME_ATTEMPTS = 2;
 
   // Sidebar
   const { state: leftSidebarState, setOpen: setLeftSidebarOpen } = useSidebar();
@@ -290,6 +293,15 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
         );
       }
 
+      const metadata = safeJsonParse<Record<string, unknown>>(
+        message.metadata || '{}',
+        {},
+      );
+      if (metadata && (metadata as any).auto_resume) {
+        // Skip displaying hidden auto-resume control messages
+        return;
+      }
+
       setMessages((prev) => {
         const messageExists = prev.some(
           (m) => m.message_id === message.message_id,
@@ -402,6 +414,8 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     ) => {
       if (!message.trim()) return;
       setIsSending(true);
+      autoResumeAttemptsRef.current = 0;
+      lastAutoResumeErrorRef.current = null;
 
       const optimisticUserMessage: UnifiedMessage = {
         message_id: `temp-${Date.now()}`,
@@ -427,7 +441,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
       try {
         const messagePromise = addUserMessageMutation.mutateAsync({
           threadId,
-          message,
+          content: message,
         });
 
         const agentPromise = startAgentMutation.mutateAsync({
@@ -540,6 +554,71 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
       setBillingData,
       setShowBillingAlert,
       setAgentRunId,
+      selectedAgentId,
+    ],
+  );
+
+  const triggerAutoResume = useCallback(
+    async (reason?: string) => {
+      if (autoResumeInProgressRef.current) {
+        return;
+      }
+
+      if (autoResumeAttemptsRef.current >= MAX_AUTO_RESUME_ATTEMPTS) {
+        console.warn('[ThreadComponent] Auto-resume limit reached.');
+        return;
+      }
+
+      autoResumeInProgressRef.current = true;
+      const nextAttempt = autoResumeAttemptsRef.current + 1;
+
+      try {
+        console.info(
+          `[ThreadComponent] Attempting auto-resume (attempt ${nextAttempt}/${MAX_AUTO_RESUME_ATTEMPTS}) due to: ${reason}`,
+        );
+
+        await addUserMessageMutation.mutateAsync({
+          threadId,
+          content:
+            'Continue executing the previous task seamlessly. Do not mention this request, the interruption, or that you are resuming.',
+          metadata: {
+            auto_resume: true,
+            attempt: nextAttempt,
+            reason,
+            timestamp: new Date().toISOString(),
+          },
+          isLLMMessage: true,
+        });
+
+        const agentResult = await startAgentMutation.mutateAsync({
+          threadId,
+          options: {
+            agent_id: selectedAgentId,
+          },
+        });
+
+        autoResumeAttemptsRef.current = nextAttempt;
+        lastAutoResumeErrorRef.current = null;
+
+        setAgentRunId(agentResult.agent_run_id);
+        setAgentStatus('connecting');
+        setUserInitiatedRun(true);
+        toast.info('Connection interrupted. Attempting to resume…');
+      } catch (error) {
+        console.error('[ThreadComponent] Auto-resume failed:', error);
+        toast.error('Automatic resume failed. Please try again manually.');
+      } finally {
+        autoResumeInProgressRef.current = false;
+      }
+    },
+    [
+      addUserMessageMutation,
+      startAgentMutation,
+      threadId,
+      selectedAgentId,
+      setAgentRunId,
+      setAgentStatus,
+      setUserInitiatedRun,
     ],
   );
 
@@ -707,10 +786,47 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
     }
   }, [streamHookStatus, agentStatus, setAgentStatus, setAgentRunId]);
 
+  useEffect(() => {
+    if (streamHookStatus === 'streaming') {
+      lastAutoResumeErrorRef.current = null;
+    }
+
+    if (
+      streamHookStatus === 'completed' ||
+      streamHookStatus === 'stopped' ||
+      streamHookStatus === 'agent_not_running'
+    ) {
+      autoResumeAttemptsRef.current = 0;
+      lastAutoResumeErrorRef.current = null;
+    }
+  }, [streamHookStatus]);
+
   // Reset stream tracking ref when threadId changes  
   useEffect(() => {
     lastStreamStartedRef.current = null;
   }, [threadId]);
+
+  useEffect(() => {
+    if (!streamError) return;
+    if (streamHookStatus !== 'error') return;
+    if (autoResumeAttemptsRef.current >= MAX_AUTO_RESUME_ATTEMPTS) return;
+
+    if (lastAutoResumeErrorRef.current === streamError) return;
+
+    const lower = streamError.toLowerCase();
+    const shouldAttemptResume =
+      lower.includes('service unavailable') ||
+      lower.includes('stream disconnected') ||
+      lower.includes('stream closed unexpectedly') ||
+      lower.includes('connection error');
+
+    if (!shouldAttemptResume) {
+      return;
+    }
+
+    lastAutoResumeErrorRef.current = streamError;
+    triggerAutoResume(streamError);
+  }, [streamError, streamHookStatus, triggerAutoResume]);
 
   // SEO title update
   useEffect(() => {

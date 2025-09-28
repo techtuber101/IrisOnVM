@@ -21,12 +21,28 @@ export const useCreateThread = createMutationHook(
 );
 
 export const useAddUserMessage = createMutationHook(
-  ({ threadId, content }: { threadId: string; content: string }) => 
-    addUserMessage(threadId, content),
+  ({
+    threadId,
+    content,
+    metadata,
+    isLLMMessage,
+    type,
+  }: {
+    threadId: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+    isLLMMessage?: boolean;
+    type?: string;
+  }) =>
+    addUserMessage(threadId, content, {
+      metadata,
+      isLLMMessage,
+      type,
+    }),
   {
     errorContext: {
       operation: 'add message',
-      resource: 'message'
-    }
-  }
-); 
+      resource: 'message',
+    },
+  },
+);

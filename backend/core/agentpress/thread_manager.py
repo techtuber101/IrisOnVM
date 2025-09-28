@@ -12,7 +12,7 @@ This module provides comprehensive conversation management, including:
 
 import json
 from typing import List, Dict, Any, Optional, Type, Union, AsyncGenerator, Literal, cast, Callable
-from core.services.llm import make_llm_api_call
+from core.services.llm import make_llm_api_call, LLMServiceUnavailableError
 from core.utils.llm_cache_utils import apply_cache_to_messages, validate_cache_blocks
 from core.agentpress.tool import Tool
 from core.agentpress.tool_registry import ToolRegistry
@@ -26,6 +26,12 @@ from core.utils.logger import logger
 from langfuse.client import StatefulGenerationClient, StatefulTraceClient
 from core.services.langfuse import langfuse
 from litellm.utils import token_counter
+
+try:
+    from litellm.exceptions import ServiceUnavailableError as LiteLLMServiceUnavailable, MidStreamFallbackError
+except Exception:  # pragma: no cover - optional litellm symbols
+    LiteLLMServiceUnavailable = Exception  # type: ignore[assignment]
+    MidStreamFallbackError = Exception  # type: ignore[assignment]
 from core.billing.billing_integration import billing_integration
 from core.billing.api import calculate_token_cost
 import re
@@ -496,6 +502,9 @@ When using the tools:
             'thread_run_id': None
         }
 
+        stream_retry_attempts = 0
+        max_stream_retry_attempts = 3
+
         # Define inner function to handle a single run
         async def _run_once(temp_msg=None):
             try:
@@ -709,7 +718,7 @@ When using the tools:
 
         # Define a wrapper generator that handles auto-continue logic
         async def auto_continue_wrapper():
-            nonlocal auto_continue, auto_continue_count
+            nonlocal auto_continue, auto_continue_count, stream_retry_attempts
 
             while auto_continue and (native_max_auto_continues == 0 or auto_continue_count < native_max_auto_continues):
                 # Reset auto_continue for this iteration
@@ -727,6 +736,7 @@ When using the tools:
                         return  # Exit the generator on error
 
                     # Process each chunk
+                    retry_due_to_stream_failure = False
                     try:
                         if hasattr(response_gen, '__aiter__'):
                             async for chunk in cast(AsyncGenerator, response_gen):
@@ -760,9 +770,35 @@ When using the tools:
                             # response_gen is not iterable (likely an error dict), yield it directly
                             yield response_gen
 
+                        # Reset retry attempts on success
+                        stream_retry_attempts = 0
+
                         # If not auto-continuing, we're done
                         if not auto_continue:
                             break
+                    except (LLMServiceUnavailableError, LiteLLMServiceUnavailable, MidStreamFallbackError) as stream_err:
+                        stream_retry_attempts += 1
+                        if stream_retry_attempts <= max_stream_retry_attempts:
+                            backoff_seconds = min(2 ** (stream_retry_attempts - 1), 5)
+                            logger.warning(
+                                f"Streaming interrupted ({stream_err}). Retrying {stream_retry_attempts}/{max_stream_retry_attempts} after {backoff_seconds}s",
+                                exc_info=True
+                            )
+                            continuous_state['accumulated_content'] = ''
+                            auto_continue = True
+                            retry_due_to_stream_failure = True
+                            await asyncio.sleep(backoff_seconds)
+                        else:
+                            logger.error(
+                                f"Streaming failed after {stream_retry_attempts} attempts: {stream_err}",
+                                exc_info=True
+                            )
+                            yield {
+                                "type": "status",
+                                "status": "error",
+                                "message": "Streaming interrupted: service unavailable"
+                            }
+                            return
                     except Exception as e:
                         # Do not fall back to other providers/models; surface the error
                         logger.error(f"Error in auto_continue_wrapper generator: {str(e)}", exc_info=True)
@@ -772,6 +808,9 @@ When using the tools:
                             "message": f"Error in thread processing: {str(e)}"
                         }
                         return  # Exit the generator on any error
+
+                    if retry_due_to_stream_failure:
+                        continue
                 except Exception as outer_e:
                     # Catch exceptions from _run_once itself
                     logger.error(f"Error executing thread: {str(outer_e)}", exc_info=True)

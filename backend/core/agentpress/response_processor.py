@@ -26,6 +26,13 @@ from core.utils.json_helpers import (
     to_json_string, format_for_yield
 )
 from litellm.utils import token_counter
+from core.services.llm import LLMServiceUnavailableError
+
+try:
+    from litellm.exceptions import ServiceUnavailableError as LiteLLMServiceUnavailable, MidStreamFallbackError
+except Exception:  # pragma: no cover - litellm optional symbols
+    LiteLLMServiceUnavailable = Exception  # type: ignore[assignment]
+    MidStreamFallbackError = Exception  # type: ignore[assignment]
 
 # Type alias for XML result adding strategy
 XmlAddingStrategy = Literal["user_message", "assistant_message", "inline_edit"]
@@ -275,87 +282,88 @@ class ResponseProcessor:
             __sequence = continuous_state.get('sequence', 0)    # get the sequence from the previous auto-continue cycle
 
             chunk_count = 0
-            async for chunk in llm_response:
-                chunk_count += 1
-                
-                # Extract streaming metadata from chunks
-                current_time = datetime.now(timezone.utc).timestamp()
-                if streaming_metadata["first_chunk_time"] is None:
-                    streaming_metadata["first_chunk_time"] = current_time
-                streaming_metadata["last_chunk_time"] = current_time
-                
-                # Log info about chunks periodically
-                if chunk_count == 1 or (chunk_count % 100 == 0) or hasattr(chunk, 'usage'):
-                    chunk_info = f"📦 Chunk #{chunk_count}: "
-                    chunk_info += f"type={type(chunk).__name__}, "
-                    chunk_info += f"has_usage={hasattr(chunk, 'usage')}, "
-                    chunk_info += f"has_choices={hasattr(chunk, 'choices')}"
-                    if hasattr(chunk, 'choices') and chunk.choices:
-                        if hasattr(chunk.choices[0], 'finish_reason'):
-                            chunk_info += f", finish_reason={chunk.choices[0].finish_reason}"
-                    logger.info(chunk_info)
-                
-                if hasattr(chunk, 'created') and chunk.created:
-                    streaming_metadata["created"] = chunk.created
-                if hasattr(chunk, 'model') and chunk.model:
-                    streaming_metadata["model"] = chunk.model
-                if hasattr(chunk, 'usage') and chunk.usage:
-                    try:
-                        usage_dict = chunk.usage.model_dump() if hasattr(chunk.usage, 'model_dump') else chunk.usage.__dict__
-                        logger.info(f"📊 RAW USAGE DATA: {usage_dict}")
-                    except Exception as e:
-                        logger.info(f"📊 Could not dump usage object: {e}")
+            try:
+                async for chunk in llm_response:
+                    chunk_count += 1
                     
-                    if hasattr(chunk.usage, 'prompt_tokens') and chunk.usage.prompt_tokens is not None:
-                        streaming_metadata["usage"]["prompt_tokens"] = chunk.usage.prompt_tokens
-                    if hasattr(chunk.usage, 'completion_tokens') and chunk.usage.completion_tokens is not None:
-                        streaming_metadata["usage"]["completion_tokens"] = chunk.usage.completion_tokens
-                    if hasattr(chunk.usage, 'total_tokens') and chunk.usage.total_tokens is not None:
-                        streaming_metadata["usage"]["total_tokens"] = chunk.usage.total_tokens
+                    # Extract streaming metadata from chunks
+                    current_time = datetime.now(timezone.utc).timestamp()
+                    if streaming_metadata["first_chunk_time"] is None:
+                        streaming_metadata["first_chunk_time"] = current_time
+                    streaming_metadata["last_chunk_time"] = current_time
                     
-                    cache_creation = getattr(chunk.usage, 'cache_creation_input_tokens', 0)
-                    cache_read = getattr(chunk.usage, 'cache_read_input_tokens', 0)
+                    # Log info about chunks periodically
+                    if chunk_count == 1 or (chunk_count % 100 == 0) or hasattr(chunk, 'usage'):
+                        chunk_info = f"📦 Chunk #{chunk_count}: "
+                        chunk_info += f"type={type(chunk).__name__}, "
+                        chunk_info += f"has_usage={hasattr(chunk, 'usage')}, "
+                        chunk_info += f"has_choices={hasattr(chunk, 'choices')}"
+                        if hasattr(chunk, 'choices') and chunk.choices:
+                            if hasattr(chunk.choices[0], 'finish_reason'):
+                                chunk_info += f", finish_reason={chunk.choices[0].finish_reason}"
+                        logger.info(chunk_info)
                     
-                    if cache_creation == 0:
-                        cache_creation = getattr(chunk.usage, 'cache_creation_tokens', 0)
-                    if cache_read == 0:
-                        cache_read = getattr(chunk.usage, 'cache_read_tokens', 0)
-                    
-                    if hasattr(chunk.usage, 'prompt_tokens_details'):
-                        details = chunk.usage.prompt_tokens_details
-                        if details and hasattr(details, 'cached_tokens') and details.cached_tokens > 0:
-                            cache_read = details.cached_tokens
-                            logger.info(f"🎯 OpenAI cache detected: {cache_read} cached tokens")
-                    
-                    if cache_creation > 0:
-                        streaming_metadata["usage"]["cache_creation_input_tokens"] = cache_creation
-                    if cache_read > 0:
-                        streaming_metadata["usage"]["cache_read_input_tokens"] = cache_read
-                    
-                    if cache_creation > 0 or cache_read > 0:
-                        logger.info(f"🎯 STREAMING CACHE METRICS: creation={cache_creation}, read={cache_read}, total={chunk.usage.prompt_tokens}")
-                    elif chunk.usage.prompt_tokens and chunk.usage.prompt_tokens > 0:
-                        logger.warning(f"⚠️ STREAMING NO CACHE: total_tokens={chunk.usage.prompt_tokens}")
-                else:
-                    if hasattr(chunk, 'choices') and chunk.choices:
-                        if hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
-                            logger.info(f"📭 Final chunk #{chunk_count} has NO usage data (finish_reason={chunk.choices[0].finish_reason})")
+                    if hasattr(chunk, 'created') and chunk.created:
+                        streaming_metadata["created"] = chunk.created
+                    if hasattr(chunk, 'model') and chunk.model:
+                        streaming_metadata["model"] = chunk.model
+                    if hasattr(chunk, 'usage') and chunk.usage:
+                        try:
+                            usage_dict = chunk.usage.model_dump() if hasattr(chunk.usage, 'model_dump') else chunk.usage.__dict__
+                            logger.info(f"📊 RAW USAGE DATA: {usage_dict}")
+                        except Exception as e:
+                            logger.info(f"📊 Could not dump usage object: {e}")
+                        
+                        if hasattr(chunk.usage, 'prompt_tokens') and chunk.usage.prompt_tokens is not None:
+                            streaming_metadata["usage"]["prompt_tokens"] = chunk.usage.prompt_tokens
+                        if hasattr(chunk.usage, 'completion_tokens') and chunk.usage.completion_tokens is not None:
+                            streaming_metadata["usage"]["completion_tokens"] = chunk.usage.completion_tokens
+                        if hasattr(chunk.usage, 'total_tokens') and chunk.usage.total_tokens is not None:
+                            streaming_metadata["usage"]["total_tokens"] = chunk.usage.total_tokens
+                        
+                        cache_creation = getattr(chunk.usage, 'cache_creation_input_tokens', 0)
+                        cache_read = getattr(chunk.usage, 'cache_read_input_tokens', 0)
+                        
+                        if cache_creation == 0:
+                            cache_creation = getattr(chunk.usage, 'cache_creation_tokens', 0)
+                        if cache_read == 0:
+                            cache_read = getattr(chunk.usage, 'cache_read_tokens', 0)
+                        
+                        if hasattr(chunk.usage, 'prompt_tokens_details'):
+                            details = chunk.usage.prompt_tokens_details
+                            if details and hasattr(details, 'cached_tokens') and details.cached_tokens > 0:
+                                cache_read = details.cached_tokens
+                                logger.info(f"🎯 OpenAI cache detected: {cache_read} cached tokens")
+                        
+                        if cache_creation > 0:
+                            streaming_metadata["usage"]["cache_creation_input_tokens"] = cache_creation
+                        if cache_read > 0:
+                            streaming_metadata["usage"]["cache_read_input_tokens"] = cache_read
+                        
+                        if cache_creation > 0 or cache_read > 0:
+                            logger.info(f"🎯 STREAMING CACHE METRICS: creation={cache_creation}, read={cache_read}, total={chunk.usage.prompt_tokens}")
+                        elif chunk.usage.prompt_tokens and chunk.usage.prompt_tokens > 0:
+                            logger.warning(f"⚠️ STREAMING NO CACHE: total_tokens={chunk.usage.prompt_tokens}")
+                    else:
+                        if hasattr(chunk, 'choices') and chunk.choices:
+                            if hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
+                                logger.info(f"📭 Final chunk #{chunk_count} has NO usage data (finish_reason={chunk.choices[0].finish_reason})")
 
-                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
-                    finish_reason = chunk.choices[0].finish_reason
-                    logger.debug(f"Detected finish_reason: {finish_reason}")
+                    if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'finish_reason') and chunk.choices[0].finish_reason:
+                        finish_reason = chunk.choices[0].finish_reason
+                        logger.debug(f"Detected finish_reason: {finish_reason}")
 
-                if hasattr(chunk, 'choices') and chunk.choices:
-                    delta = chunk.choices[0].delta if hasattr(chunk.choices[0], 'delta') else None
-                    
-                    # Check for and log Anthropic thinking content
-                    if delta and hasattr(delta, 'reasoning_content') and delta.reasoning_content:
-                        if not has_printed_thinking_prefix:
-                            # print("[THINKING]: ", end='', flush=True)
-                            has_printed_thinking_prefix = True
-                        # print(delta.reasoning_content, end='', flush=True)
-                        # Append reasoning to main content to be saved in the final message
-                        accumulated_content += delta.reasoning_content
+                    if hasattr(chunk, 'choices') and chunk.choices:
+                        delta = chunk.choices[0].delta if hasattr(chunk.choices[0], 'delta') else None
+                        
+                        # Check for and log Anthropic thinking content
+                        if delta and hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                            if not has_printed_thinking_prefix:
+                                # print("[THINKING]: ", end='', flush=True)
+                                has_printed_thinking_prefix = True
+                            # print(delta.reasoning_content, end='', flush=True)
+                            # Append reasoning to main content to be saved in the final message
+                            accumulated_content += delta.reasoning_content
 
                     # Process content chunk
                     if delta and hasattr(delta, 'content') and delta.content:
@@ -478,13 +486,15 @@ class ResponseProcessor:
                                 })
                                 tool_index += 1
 
-                if finish_reason == "xml_tool_limit_reached":
-                    logger.debug("Stopping stream processing after loop due to XML tool call limit")
-                    self.trace.event(name="stopping_stream_processing_after_loop_due_to_xml_tool_call_limit", level="DEFAULT", status_message=(f"Stopping stream processing after loop due to XML tool call limit"))
-                    break
+                logger.info(f"📊 Stream complete. Total chunks: {chunk_count}")
+                logger.info(f"📊 Usage from stream: prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}, cache_read={streaming_metadata['usage'].get('cache_read_input_tokens', 0)}")
 
-            logger.info(f"📊 Stream complete. Total chunks: {chunk_count}")
-            logger.info(f"📊 Usage from stream: prompt={streaming_metadata['usage']['prompt_tokens']}, completion={streaming_metadata['usage']['completion_tokens']}, cache_read={streaming_metadata['usage'].get('cache_read_input_tokens', 0)}")
+            except (LiteLLMServiceUnavailable, MidStreamFallbackError) as stream_error:
+                logger.warning(
+                    f"Streaming interrupted by service unavailability: {stream_error}",
+                    exc_info=True
+                )
+                raise LLMServiceUnavailableError(f"Streaming aborted: {stream_error}") from stream_error
 
             if cache_metrics:
                 cache_read = cache_metrics.get('cache_read_tokens', 0)

@@ -660,6 +660,11 @@ export const createThread = async (projectId: string): Promise<Thread> => {
 export const addUserMessage = async (
   threadId: string,
   content: string,
+  options?: {
+    metadata?: Record<string, unknown>;
+    isLLMMessage?: boolean;
+    type?: string;
+  },
 ): Promise<void> => {
   const supabase = createClient();
 
@@ -669,13 +674,19 @@ export const addUserMessage = async (
     content: content,
   };
 
-  // Insert the message into the messages table
-  const { error } = await supabase.from('messages').insert({
+  const insertPayload: Record<string, unknown> = {
     thread_id: threadId,
-    type: 'user',
-    is_llm_message: true,
+    type: options?.type ?? 'user',
+    is_llm_message: options?.isLLMMessage ?? true,
     content: JSON.stringify(message),
-  });
+  };
+
+  if (options?.metadata) {
+    insertPayload.metadata = JSON.stringify(options.metadata);
+  }
+
+  // Insert the message into the messages table
+  const { error } = await supabase.from('messages').insert(insertPayload);
 
   if (error) {
     console.error('Error adding user message:', error);

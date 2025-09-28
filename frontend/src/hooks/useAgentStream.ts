@@ -62,7 +62,14 @@ const mapApiMessagesToUnified = (
   currentThreadId: string,
 ): UnifiedMessage[] => {
   return (messagesData || [])
-    .filter((msg) => msg.type !== 'status')
+    .filter((msg) => {
+      if (msg.type === 'status') return false;
+      const metadata = safeJsonParse<Record<string, unknown>>(
+        msg.metadata || '{}',
+        {},
+      );
+      return !(metadata && (metadata as any).auto_resume);
+    })
     .map((msg: ApiMessageType) => ({
       message_id: msg.message_id || null,
       thread_id: msg.thread_id || currentThreadId,
@@ -381,6 +388,11 @@ export function useAgentStream(
         {},
       );
 
+      if (parsedMetadata && (parsedMetadata as any).auto_resume) {
+        // Skip displaying auto-resume control messages to the user
+        return;
+      }
+
       // Update status to streaming if we receive a valid message
       if (status !== 'streaming') updateStatus('streaming');
 
@@ -468,6 +480,8 @@ export function useAgentStream(
       callbacks,
       finalizeStream,
       updateStatus,
+      addContentThrottled,
+      flushPendingContent,
     ],
   );
 
@@ -490,13 +504,21 @@ export function useAgentStream(
       const isExpected =
         lower.includes('not found') || lower.includes('not running');
 
+      const shouldSuppressToast =
+        lower.includes('service unavailable') ||
+        lower.includes('stream disconnected') ||
+        lower.includes('stream closed unexpectedly') ||
+        lower.includes('connection error');
+
       if (isExpected) {
         console.info('[useAgentStream] Streaming skipped/ended:', errorMessage);
       } else {
         console.error('[useAgentStream] Streaming error:', errorMessage, err);
         setError(errorMessage);
-        // Show error toast with longer duration
-        toast.error(errorMessage, { duration: 15000 });
+        if (!shouldSuppressToast) {
+          // Show error toast with longer duration
+          toast.error(errorMessage, { duration: 15000 });
+        }
       }
 
       const runId = currentRunIdRef.current;
@@ -618,7 +640,7 @@ export function useAgentStream(
       // Only set mounted flag to false to prevent new operations
       // Streams will be cleaned up when they naturally complete or on explicit stop
     };
-  }, []); // Empty dependency array for mount/unmount effect
+  }, [flushPendingContent]); // Depend on flushPendingContent to satisfy lint
 
   // --- Public Functions ---
 

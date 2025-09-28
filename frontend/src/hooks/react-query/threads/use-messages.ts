@@ -19,9 +19,20 @@ export const useAddUserMessageMutation = () =>
   createMutationHook(
     ({
       threadId,
-      message,
+      content,
+      metadata,
+      isLLMMessage,
+      type,
     }: {
       threadId: string;
-      message: string;
-    }) => addUserMessage(threadId, message)
+      content: string;
+      metadata?: Record<string, unknown>;
+      isLLMMessage?: boolean;
+      type?: string;
+    }) =>
+      addUserMessage(threadId, content, {
+        metadata,
+        isLLMMessage,
+        type,
+      })
   )();
