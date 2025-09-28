@@ -1156,13 +1156,13 @@ export const siteConfig = {
   },
   ctaSection: {
     id: 'cta',
-    title: 'Launch Your First AI Worker Today',
+    title: 'Pure Intelligence. Pure Results',
     backgroundImage: '/holo.png',
     button: {
       text: 'Get Started for free',
       href: '/auth',
     },
-    subtext: 'Build, manage and train your AI Workforce',
+    subtext: '',
   },
   footerLinks: [
     {

@@ -20,7 +20,6 @@ import {
   useModelSelection
 } from '@/components/thread/chat-input/_use-model-selection-new';
 import { formatModelName, getPrefixedModelId, DEFAULT_FREE_MODEL_ID, DEFAULT_PREMIUM_MODEL_ID } from '@/lib/stores/model-store';
-import { useAvailableModels } from '@/hooks/react-query/subscriptions/use-billing';
 import { isLocalMode } from '@/lib/config';
 import { CustomModelDialog, CustomModelFormData } from '@/components/thread/chat-input/custom-model-dialog';
 import { PaywallDialog } from '@/components/payment/paywall-dialog';
@@ -58,7 +57,6 @@ export function AgentModelSelector({
     updateCustomModel: storeUpdateCustomModel,
     removeCustomModel: storeRemoveCustomModel 
   } = useModelSelection();
-  const { data: modelsData } = useAvailableModels();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
@@ -78,19 +76,9 @@ export function AgentModelSelector({
   const normalizeModelId = (modelId?: string): string => {
     if (!modelId) return subscriptionStatus === 'active' ? DEFAULT_PREMIUM_MODEL_ID : DEFAULT_FREE_MODEL_ID;
     
-    if (modelsData?.models) {
-      const exactMatch = modelsData.models.find(m => m.short_name === modelId);
-      if (exactMatch) return exactMatch.short_name;
-
-      const fullMatch = modelsData.models.find(m => m.id === modelId);
-      if (fullMatch) return fullMatch.short_name || fullMatch.id;
-      
-      if (modelId.startsWith('openrouter/')) {
-        const shortName = modelId.replace('openrouter/', '');
-        const shortMatch = modelsData.models.find(m => m.short_name === shortName);
-        if (shortMatch) return shortMatch.short_name;
-      }
-    }
+    // Use allModels instead of raw API data
+    const exactMatch = allModels.find(m => m.id === modelId);
+    if (exactMatch) return exactMatch.id;
     
     return modelId;
   };
@@ -103,32 +91,13 @@ export function AgentModelSelector({
   const enhancedModelOptions = useMemo(() => {
     const modelMap = new Map();
 
-    if (modelsData?.models) {
-      modelsData.models.forEach(model => {
-        const shortName = model.short_name || model.id;
-        const displayName = model.display_name || shortName;
-        
-        modelMap.set(shortName, {
-          id: shortName,
-          label: displayName,
-          requiresSubscription: model.requires_subscription || false,
-          priority: model.priority || 0,
-          recommended: model.recommended || false,
-          top: (model.priority || 0) >= 90,
-          capabilities: model.capabilities || [],
-          contextWindow: model.context_window || 128000,
-          isCustom: false
-        });
+    // Use the filtered allModels instead of raw API data
+    allModels.forEach(model => {
+      modelMap.set(model.id, {
+        ...model,
+        isCustom: false
       });
-    } else {
-      // Fallback to allModels if API data not available
-      allModels.forEach(model => {
-        modelMap.set(model.id, {
-          ...model,
-          isCustom: false
-        });
-      });
-    }
+    });
 
     if (isLocalMode()) {
       customModels.forEach(model => {
@@ -151,7 +120,7 @@ export function AgentModelSelector({
     }
 
     return Array.from(modelMap.values());
-  }, [modelsData?.models, allModels, customModels]);
+  }, [allModels, customModels]);
   
   const selectedModelDisplay = useMemo(() => {
     const model = enhancedModelOptions.find(m => m.id === selectedModel);
