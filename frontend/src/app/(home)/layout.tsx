@@ -7,7 +7,7 @@ export default function HomeLayout({
   return (
     // Force dark theme styling for homepage so it looks great in both app themes
     <div className="dark">
-      <div className="relative min-h-dvh isolate overflow-hidden bg-background text-foreground">
+      <div className="homepage-layout relative min-h-dvh isolate overflow-hidden bg-background text-foreground">
         {/* Global hero-style backdrop for the entire page */}
         <div className="pointer-events-none absolute inset-0 -z-10">
           <SiteBackdrop />
