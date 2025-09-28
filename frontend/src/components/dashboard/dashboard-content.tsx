@@ -37,6 +37,8 @@ import { useDashboardTour } from '@/hooks/use-dashboard-tour';
 import { TourConfirmationDialog } from '@/components/tour/TourConfirmationDialog';
 import { Calendar, MessageSquare, Plus, Sparkles, Zap } from 'lucide-react';
 import { AgentConfigurationDialog } from '@/components/agents/agent-configuration-dialog';
+import { useAuth } from '@/components/AuthProvider';
+import { getUserGreeting } from '@/lib/utils/greetings';
 
 const PENDING_PROMPT_KEY = 'pendingAgentPrompt';
 
@@ -93,6 +95,10 @@ export function DashboardContent() {
   const chatInputRef = React.useRef<ChatInputHandles>(null);
   const initiateAgentMutation = useInitiateAgentWithInvalidation();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { user } = useAuth();
+
+  // Generate personalized greeting
+  const greeting = getUserGreeting(user);
 
   // Tour integration
   const {
@@ -377,7 +383,7 @@ export function DashboardContent() {
                     className="tracking-tight text-2xl md:text-3xl font-normal text-foreground/90"
                     data-tour="dashboard-title"
                   >
-                    What would you like to do today?
+                    {greeting}
                   </p>
                 </div>
                 <div className="w-full" data-tour="chat-input">
