@@ -107,11 +107,13 @@ export default function DashboardLayoutContent({
     <DeleteOperationProvider>
       <SubscriptionProvider>
         <SidebarProvider>
-          <SidebarLeft />
-          <SidebarInset>
-            {mantenanceBanner}
-            <div className="bg-background">{children}</div>
-          </SidebarInset>
+          <div className="dashboard-layout">
+            <SidebarLeft />
+            <SidebarInset>
+              {mantenanceBanner}
+              <div className="bg-background">{children}</div>
+            </SidebarInset>
+          </div>
 
           {/* <PricingAlert 
           open={showPricingAlert} 
