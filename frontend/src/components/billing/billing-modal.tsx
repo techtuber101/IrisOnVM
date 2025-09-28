@@ -236,15 +236,7 @@ export function BillingModal({ open, onOpenChange, returnUrl = typeof window !==
                 </DialogHeader>
 
                 <>
-                    <PricingSection 
-                        returnUrl={returnUrl} 
-                        showTitleAndTabs={false}
-                        onSubscriptionUpdate={() => {
-                            setTimeout(() => {
-                                fetchSubscriptionData();
-                            }, 500);
-                        }}
-                    />
+                    <PricingSection />
                     {error ? (
                         <div className="mt-6 pt-4 border-t border-border">
                             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
