@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PUBLIC_ROUTES = [
+  '/',
   '/auth',
   '/auth/callback',
   '/auth/signup',
@@ -59,6 +60,14 @@ export async function middleware(request: NextRequest) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
+    // If user is authenticated and trying to access homepage, redirect to dashboard
+    if (user && pathname === '/') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      return NextResponse.redirect(url);
+    }
+    
+    // If user is not authenticated and trying to access protected routes, redirect to auth
     if (authError || !user) {
       const url = request.nextUrl.clone();
       url.pathname = '/auth';
@@ -176,7 +185,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - root path (/)
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

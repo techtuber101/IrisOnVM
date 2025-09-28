@@ -3,9 +3,9 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/home/ui/accordion';
-import { SectionHeader } from '@/components/home/section-header';
-import { siteConfig } from '@/lib/home';
+} from "@/components/home/ui/accordion";
+import { SectionHeader } from "@/components/home/section-header";
+import { siteConfig } from "@/lib/home";
 
 export function FAQSection() {
   const { faqSection } = siteConfig;
@@ -15,7 +15,6 @@ export function FAQSection() {
       id="faq"
       className="flex flex-col items-center justify-center gap-10 pb-10 w-full relative"
     >
-      <div className="w-full px-6">
       <SectionHeader>
         <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">
           {faqSection.title}
@@ -48,7 +47,6 @@ export function FAQSection() {
             </AccordionItem>
           ))}
         </Accordion>
-      </div>
       </div>
     </section>
   );

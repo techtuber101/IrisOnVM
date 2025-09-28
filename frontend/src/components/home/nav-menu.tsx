@@ -1,9 +1,8 @@
-'use client';
+"use client";
 
-import { siteConfig } from '@/lib/home';
-import { motion } from 'motion/react';
-import React, { useRef, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { siteConfig } from "@/lib/home";
+import { motion } from "motion/react";
+import React, { useRef, useState } from "react";
 
 interface NavItem {
   name: string;
@@ -17,35 +16,28 @@ export function NavMenu() {
   const [left, setLeft] = useState(0);
   const [width, setWidth] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  const [activeSection, setActiveSection] = useState('hero');
+  const [activeSection, setActiveSection] = useState("hero");
   const [isManualScroll, setIsManualScroll] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
 
   React.useEffect(() => {
-    // Initialize with appropriate nav item based on current path
-    let targetHref = '#hero'; // default
-    if (pathname === '/enterprise') {
-      targetHref = '/enterprise';
-    }
-    
-    const targetItem = ref.current?.querySelector(
-      `[href="${targetHref}"]`,
+    // Initialize with first nav item
+    const firstItem = ref.current?.querySelector(
+      `[href="#${navs[0].href.substring(1)}"]`,
     )?.parentElement;
-    if (targetItem) {
-      const rect = targetItem.getBoundingClientRect();
-      setLeft(targetItem.offsetLeft);
+    if (firstItem) {
+      const rect = firstItem.getBoundingClientRect();
+      setLeft(firstItem.offsetLeft);
       setWidth(rect.width);
       setIsReady(true);
     }
-  }, [pathname]);
+  }, []);
 
   React.useEffect(() => {
     const handleScroll = () => {
-      // Skip scroll handling during manual click scrolling or if not on homepage
-      if (isManualScroll || pathname !== '/') return;
+      // Skip scroll handling during manual click scrolling
+      if (isManualScroll) return;
 
-      const sections = navs.filter(item => item.href.startsWith('#')).map((item) => item.href.substring(1));
+      const sections = navs.map((item) => item.href.substring(1));
 
       // Find the section closest to viewport top
       let closestSection = sections[0];
@@ -75,46 +67,18 @@ export function NavMenu() {
       }
     };
 
-    // Handle non-homepage routes
-    if (pathname !== '/') {
-      const currentPageItem = navs.find(item => item.href === pathname);
-      if (currentPageItem) {
-        const navItem = ref.current?.querySelector(
-          `[href="${currentPageItem.href}"]`,
-        )?.parentElement;
-        if (navItem) {
-          const rect = navItem.getBoundingClientRect();
-          setLeft(navItem.offsetLeft);
-          setWidth(rect.width);
-        }
-      }
-      return;
-    }
-
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     handleScroll(); // Initial check
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isManualScroll, pathname]);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isManualScroll]);
 
   const handleClick = (
     e: React.MouseEvent<HTMLAnchorElement>,
     item: NavItem,
   ) => {
-    // If it's an external link (not starting with #), let it navigate normally
-    if (!item.href.startsWith('#')) {
-      return;
-    }
-
     e.preventDefault();
 
     const targetId = item.href.substring(1);
-    
-    // If we're not on the homepage, redirect to homepage with the section
-    if (pathname !== '/') {
-      router.push(`/${item.href}`);
-      return;
-    }
-    
     const element = document.getElementById(targetId);
 
     if (element) {
@@ -137,7 +101,7 @@ export function NavMenu() {
       // Smooth scroll to exact position
       window.scrollTo({
         top: offsetPosition,
-        behavior: 'smooth',
+        behavior: "smooth",
       });
 
       // Reset manual scroll flag after animation completes
@@ -157,9 +121,9 @@ export function NavMenu() {
           <li
             key={item.name}
             className={`z-10 cursor-pointer h-full flex items-center justify-center px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-              (item.href.startsWith('#') && pathname === '/' && activeSection === item.href.substring(1)) || (item.href === pathname)
-                ? 'text-primary'
-                : 'text-primary/60 hover:text-primary'
+              activeSection === item.href.substring(1)
+                ? "text-primary"
+                : "text-primary/60 hover:text-primary"
             } tracking-tight`}
           >
             <a href={item.href} onClick={(e) => handleClick(e, item)}>
@@ -170,7 +134,7 @@ export function NavMenu() {
         {isReady && (
           <motion.li
             animate={{ left, width }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="absolute inset-0 my-1.5 rounded-full bg-accent/60 border border-border"
           />
         )}

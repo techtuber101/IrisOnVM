@@ -1,6 +1,6 @@
-import { SectionHeader } from '@/components/home/section-header';
-import { Feature as FeatureComponent } from '@/components/home/ui/feature-slideshow';
-import { siteConfig } from '@/lib/home';
+import { SectionHeader } from "@/components/home/section-header";
+import { Feature as FeatureComponent } from "@/components/home/ui/feature-slideshow";
+import { siteConfig } from "@/lib/home";
 
 export function FeatureSection() {
   const { title, description, items } = siteConfig.featureSection;
@@ -8,7 +8,7 @@ export function FeatureSection() {
   return (
     <section
       id="features"
-      className="flex flex-col items-center justify-center gap-5 w-full relative px-6"
+      className="flex flex-col items-center justify-center gap-5 w-full relative"
     >
       <SectionHeader>
         <h2 className="text-3xl md:text-4xl font-medium tracking-tighter text-center text-balance">

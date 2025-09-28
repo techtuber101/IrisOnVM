@@ -1,17 +1,17 @@
 /* eslint-disable @next/next/no-img-element */
-'use client';
+"use client";
 
-import { Icons } from '@/components/home/icons';
+import { Icons } from "@/components/home/icons";
 import {
   Reasoning,
   ReasoningContent,
   ReasoningResponse,
-} from '@/components/home/ui/reasoning';
-import { AnimatePresence, motion, useInView } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+} from "@/components/home/ui/reasoning";
+import { AnimatePresence, motion, useInView } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 export function ReasoningBasic() {
-  const reasoningText = `Perfect! I'll create an AI Worker that monitors your email, automatically categorizes messages, and sends you daily summaries. The agent will also draft responses for common inquiries and flag urgent messages for immediate attention.`;
+  const reasoningText = `Based on your calendar patterns and preferences, I recommend scheduling the team meeting for Tuesday at 2pm. This time slot has historically had the highest attendance rate, and it avoids conflicts with other recurring meetings.`;
 
   return (
     <Reasoning>
@@ -54,7 +54,7 @@ export function FirstBentoAnimation() {
           y: shouldAnimate ? -75 : 0,
         }}
         transition={{
-          type: 'spring',
+          type: "spring",
           stiffness: 300,
           damping: 20,
         }}
@@ -66,12 +66,12 @@ export function FirstBentoAnimation() {
             animate={{ opacity: 1, x: 0 }}
             transition={{
               duration: 0.3,
-              ease: 'easeOut',
+              ease: "easeOut",
             }}
           >
             <p className="text-sm">
-              I need an AI Worker to help manage my email inbox. Can you create 
-              one that categorizes messages and drafts responses automatically?
+              Hey, I need help scheduling a team meeting that works well for
+              everyone. Any suggestions for finding an optimal time slot?
             </p>
           </motion.div>
           <div className="flex items-center bg-background rounded-full w-fit border border-border flex-shrink-0">
@@ -84,11 +84,7 @@ export function FirstBentoAnimation() {
         </div>
         <div className="flex items-start gap-2">
           <div className="flex items-center bg-background rounded-full size-10 flex-shrink-0 justify-center shadow-[0_0_10px_rgba(0,0,0,0.05)] border border-border">
-            <img 
-              src="/iris-symbol.png" 
-              alt="Iris Symbol" 
-              className="size-4 dark:invert"
-            />
+            <Icons.logo className="size-4" />
           </div>
 
           <div className="relative">
@@ -102,7 +98,7 @@ export function FirstBentoAnimation() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{
                     duration: 0.2,
-                    ease: 'easeOut',
+                    ease: "easeOut",
                   }}
                 >
                   <div className="flex gap-1">
@@ -115,7 +111,7 @@ export function FirstBentoAnimation() {
                           duration: 0.6,
                           repeat: Infinity,
                           delay: index * 0.2,
-                          ease: 'easeInOut',
+                          ease: "easeInOut",
                         }}
                       />
                     ))}
@@ -134,7 +130,7 @@ export function FirstBentoAnimation() {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{
                     duration: 0.3,
-                    ease: 'easeOut',
+                    ease: "easeOut",
                   }}
                 >
                   <ReasoningBasic />

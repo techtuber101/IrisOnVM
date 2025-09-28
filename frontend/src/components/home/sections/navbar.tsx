@@ -1,198 +1,223 @@
-'use client';
+"use client";
 
-import { NavMenu } from '@/components/home/nav-menu';
-import { ThemeToggle } from '@/components/home/theme-toggle';
-import { siteConfig } from '@/lib/home';
-import { cn } from '@/lib/utils';
-import { Menu, X, Github } from 'lucide-react';
-import { AnimatePresence, motion, useScroll } from 'motion/react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
-import { useTheme } from 'next-themes';
-import { useAuth } from '@/components/AuthProvider';
-import { useGitHubStars } from '@/hooks/use-github-stars';
-import { useRouter, usePathname } from 'next/navigation';
+import { Icons } from "@/components/home/icons";
+import { NavMenu } from "@/components/home/nav-menu";
+import { siteConfig } from "@/lib/home";
+import { cn } from "@/lib/utils";
+import { Menu, X } from "lucide-react";
+import { AnimatePresence, motion, useScroll } from "motion/react";
+import Link from "next/link";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 
-const INITIAL_WIDTH = '70rem';
-const MAX_WIDTH = '1000px';
+const INITIAL_WIDTH = "70rem";
+const MAX_WIDTH = "800px";
 
-const overlayVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
+const overlayVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 }, exit: { opacity: 0 } };
 const drawerVariants = {
   hidden: { opacity: 0, y: 100 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    rotate: 0,
-    transition: {
-      type: 'spring',
-      damping: 15,
-      stiffness: 200,
-      staggerChildren: 0.03,
-    },
-  },
-  exit: {
-    opacity: 0,
-    y: 100,
-    transition: { duration: 0.1 },
-  },
+  visible: { opacity: 1, y: 0, rotate: 0, transition: { type: "spring", damping: 15, stiffness: 200, staggerChildren: 0.03 } },
+  exit: { opacity: 0, y: 100, transition: { duration: 0.1 } },
 };
-
-const drawerMenuContainerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
-
-const drawerMenuVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
+const drawerMenuContainerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const drawerMenuVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 
 export function Navbar() {
   const { scrollY } = useScroll();
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('hero');
-  const { theme, resolvedTheme } = useTheme();
+  const [activeSection, setActiveSection] = useState("hero");
   const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
-  const { formattedStars, loading: starsLoading } = useGitHubStars('kortix-ai', 'suna');
-  const router = useRouter();
-  const pathname = usePathname();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
+  // Highlight current section
   useEffect(() => {
     const handleScroll = () => {
-      const sections = siteConfig.nav.links.map((item) =>
-        item.href.substring(1),
-      );
-
+      const sections = siteConfig.nav.links.map((item) => item.href.substring(1));
       for (const section of sections) {
-        const element = document.getElementById(section);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          if (rect.top <= 150 && rect.bottom >= 150) {
-            setActiveSection(section);
-            break;
-          }
+        const el = document.getElementById(section);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= 150 && rect.bottom >= 150) {
+          setActiveSection(section);
+          break;
         }
       }
     };
-
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
     handleScroll();
-
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Toggle glass on scroll
   useEffect(() => {
-    const unsubscribe = scrollY.on('change', (latest) => {
-      setHasScrolled(latest > 10);
-    });
-    return unsubscribe;
+    const unsub = scrollY.on("change", (latest) => setHasScrolled(latest > 10));
+    return unsub;
   }, [scrollY]);
 
-  const toggleDrawer = () => setIsDrawerOpen((prev) => !prev);
+  const toggleDrawer = () => setIsDrawerOpen((p) => !p);
   const handleOverlayClick = () => setIsDrawerOpen(false);
 
-  const logoSrc = !mounted
-    ? '/irislogo.png'
-    : resolvedTheme === 'dark'
-      ? '/irislogowhite.png'
-      : '/irislogo.png';
+  const logoSrc = "/iris-logo.png";
 
   return (
     <header
       className={cn(
-        'sticky z-50 flex justify-center transition-all duration-300',
-        hasScrolled ? 'top-6 mx-4 md:mx-0' : 'top-4 mx-2 md:mx-0',
+        // CENTERED, FLOATING “PILL” CONTAINER
+        "fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300"
       )}
+      // ensure the centered container doesn't get clipped on tiny screens
+      style={{ width: "min(100vw - 1rem, 80rem)" }}
     >
+      {/* Animate the container width as you scroll (keeps it centered) */}
       <motion.div
+        className="mx-auto"
         initial={{ width: INITIAL_WIDTH }}
         animate={{ width: hasScrolled ? MAX_WIDTH : INITIAL_WIDTH }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
       >
         <div
           className={cn(
-            'mx-auto max-w-7xl rounded-2xl transition-all duration-300 xl:px-0',
+            // The pill itself
+            "rounded-full transition-all duration-300",
             hasScrolled
-              ? 'px-2 md:px-2 border border-border backdrop-blur-lg bg-background/75'
-              : 'shadow-none px-3 md:px-7',
+              // scrolled: glassy pill
+              ? "border border-border bg-background/70 backdrop-blur-md shadow-lg px-2"
+              // top: totally transparent — no bg, no border, no blur, no shadow
+              : "border-transparent bg-transparent backdrop-blur-0 shadow-none px-7"
           )}
         >
-          <div className="flex h-[56px] items-center p-2 md:p-4">
-            {/* Left Section - Logo */}
-            <div className="flex items-center justify-start flex-shrink-0 w-auto md:w-[200px]">
-              <Link href="/" className="flex items-center gap-3">
-                <Image
-                  src={logoSrc}
-                  alt="Kortix Logo"
-                  width={80}
-                  height={14}
-                  className="md:w-[100px] md:h-[18px]"
-                  priority
-                /> 
-              </Link>
-            </div>
+          <div className="flex h-[56px] items-center justify-between px-4 md:px-6">
+            {/* Left: Logo */}
+            <Link href="/" className="flex items-center gap-3">
+              <Image src={logoSrc} alt="Iris Logo" width={140} height={22} priority />
+            </Link>
 
-            {/* Center Section - Navigation Menu */}
-            <div className="hidden md:flex items-center justify-center flex-grow">
-              <NavMenu />
-            </div>
+            {/* Center: Menu */}
+            <NavMenu />
 
-            {/* Right Section - Actions */}
-            <div className="flex items-center justify-end flex-shrink-0 w-auto md:w-[200px] ml-auto">
-              <div className="flex flex-row items-center gap-2 md:gap-3 shrink-0">
-                <div className="flex items-center space-x-3">
+            {/* Right: Actions */}
+            <div className="flex flex-row items-center gap-1 md:gap-3 shrink-0">
+              <div className="hidden md:flex items-center space-x-3">
+                {user ? (
                   <Link
-                    href="https://github.com/kortix-ai/suna"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hidden md:flex items-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded-full bg-transparent text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/30 transition-all duration-200"
-                    aria-label="GitHub Repository"
+                    className="group relative inline-flex"
+                    href="/dashboard"
                   >
-                    <Github className="size-3.5" />
-                    <span className={`text-xs font-medium transition-opacity duration-200 ${starsLoading ? 'opacity-50' : 'opacity-100'}`}>
-                      {formattedStars}
-                    </span>
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      className="relative rounded-full border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden"
+                    >
+                      {/* Gradient rim */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 rounded-full"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                          WebkitMask:
+                            "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                          WebkitMaskComposite: "xor" as any,
+                          maskComposite: "exclude",
+                          padding: 1,
+                          borderRadius: 24,
+                        }}
+                      />
+                      {/* Specular streak */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-0 h-6"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                          filter: "blur(6px)",
+                          mixBlendMode: "screen",
+                        }}
+                      />
+                      {/* Fine noise */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 opacity-30"
+                        style={{
+                          backgroundImage:
+                            "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22/><feColorMatrix type=%22saturate%22 values=%220%22/><feComponentTransfer><feFuncA type=%22table%22 tableValues=%220 0.03%22/></feComponentTransfer></filter><rect width=%22100%%22 height=%22100%%22 filter=%22url(%23n)%22 /></svg>')",
+                          backgroundSize: "100px 100px",
+                          mixBlendMode: "overlay",
+                        }}
+                      />
+                      {/* Subtle glow pulse */}
+                      <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
+                      {/* Button content */}
+                      <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center gap-2">
+                        Dashboard
+                      </span>
+                    </motion.div>
                   </Link>
-                  {user ? (
-                    <Link
-                      className="bg-secondary h-8 hidden md:flex items-center justify-center text-sm font-normal tracking-wide rounded-full text-primary-foreground dark:text-secondary-foreground w-fit px-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_3px_3px_-1.5px_rgba(16,24,40,0.06),0_1px_1px_rgba(16,24,40,0.08)] border border-white/[0.12]"
-                      href="/dashboard"
+                ) : (
+                  <Link
+                    className="group relative inline-flex"
+                    href="/auth"
+                  >
+                    <motion.div
+                      whileHover={{ y: -1 }}
+                      className="relative rounded-full border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden"
                     >
-                      Dashboard
-                    </Link>
-                  ) : (
-                    <Link
-                      className="bg-secondary h-8 hidden md:flex items-center justify-center text-sm font-normal tracking-wide rounded-full text-primary-foreground dark:text-secondary-foreground w-fit px-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_3px_3px_-1.5px_rgba(16,24,40,0.06),0_1px_1px_rgba(16,24,40,0.08)] border border-white/[0.12]"
-                      href="/auth"
-                    >
-                      Try free
-                    </Link>
-                  )}
-                </div>
-                <ThemeToggle />
-                <button
-                  className="md:hidden border border-border size-8 rounded-md cursor-pointer flex items-center justify-center"
-                  onClick={toggleDrawer}
-                >
-                  {isDrawerOpen ? (
-                    <X className="size-5" />
-                  ) : (
-                    <Menu className="size-5" />
-                  )}
-                </button>
+                      {/* Gradient rim */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 rounded-full"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                          WebkitMask:
+                            "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                          WebkitMaskComposite: "xor" as any,
+                          maskComposite: "exclude",
+                          padding: 1,
+                          borderRadius: 24,
+                        }}
+                      />
+                      {/* Specular streak */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-0 h-6"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                          filter: "blur(6px)",
+                          mixBlendMode: "screen",
+                        }}
+                      />
+                      {/* Fine noise */}
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 opacity-30"
+                        style={{
+                          backgroundImage:
+                            "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22/><feColorMatrix type=%22saturate%22 values=%220%22/><feComponentTransfer><feFuncA type=%22table%22 tableValues=%220 0.03%22/></feComponentTransfer></filter><rect width=%22100%%22 height=%22100%%22 filter=%22url(%23n)%22 /></svg>')",
+                          backgroundSize: "100px 100px",
+                          mixBlendMode: "overlay",
+                        }}
+                      />
+                      {/* Subtle glow pulse */}
+                      <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
+                      {/* Button content */}
+                      <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center gap-2">
+                        Get Started
+                      </span>
+                    </motion.div>
+                  </Link>
+                )}
               </div>
+              <button
+                className="md:hidden border border-border size-8 rounded-md cursor-pointer flex items-center justify-center"
+                onClick={toggleDrawer}
+              >
+                {isDrawerOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+              </button>
             </div>
           </div>
         </div>
@@ -211,7 +236,6 @@ export function Navbar() {
               transition={{ duration: 0.2 }}
               onClick={handleOverlayClick}
             />
-
             <motion.div
               className="fixed inset-x-0 w-[95%] mx-auto bottom-3 bg-background border border-border p-4 rounded-xl shadow-lg"
               initial="hidden"
@@ -219,69 +243,33 @@ export function Navbar() {
               exit="exit"
               variants={drawerVariants}
             >
-              {/* Mobile menu content */}
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="flex items-center gap-3">
-                    <Image
-                      src={logoSrc}
-                      alt="Kortix Logo"
-                      width={120}
-                      height={22}
-                      priority
-                    />
-                    <span className="font-medium text-primary text-sm">
-                      / Iris
-                    </span>
+                    <Image src={logoSrc} alt="Iris Logo" width={120} height={22} priority />
+                    <span className="font-medium text-primary text-sm">Iris</span>
                   </Link>
-                  <button
-                    onClick={toggleDrawer}
-                    className="border border-border rounded-md p-1 cursor-pointer"
-                  >
+                  <button onClick={toggleDrawer} className="border border-border rounded-md p-1 cursor-pointer">
                     <X className="size-5" />
                   </button>
                 </div>
 
-                <motion.ul
-                  className="flex flex-col text-sm mb-4 border border-border rounded-md"
-                  variants={drawerMenuContainerVariants}
-                >
+                <motion.ul className="flex flex-col text-sm mb-4 border border-border rounded-md" variants={drawerMenuContainerVariants}>
                   <AnimatePresence>
                     {siteConfig.nav.links.map((item) => (
-                      <motion.li
-                        key={item.id}
-                        className="p-2.5 border-b border-border last:border-b-0"
-                        variants={drawerMenuVariants}
-                      >
+                      <motion.li key={item.id} className="p-2.5 border-b border-border last:border-b-0" variants={drawerMenuVariants}>
                         <a
                           href={item.href}
                           onClick={(e) => {
-                            // If it's an external link (not starting with #), let it navigate normally
-                            if (!item.href.startsWith('#')) {
-                              setIsDrawerOpen(false);
-                              return;
-                            }
-                            
                             e.preventDefault();
-                            
-                            // If we're not on the homepage, redirect to homepage with the section
-                            if (pathname !== '/') {
-                              router.push(`/${item.href}`);
-                              setIsDrawerOpen(false);
-                              return;
-                            }
-                            
-                            const element = document.getElementById(
-                              item.href.substring(1),
-                            );
-                            element?.scrollIntoView({ behavior: 'smooth' });
+                            const el = document.getElementById(item.href.substring(1));
+                            el?.scrollIntoView({ behavior: "smooth" });
                             setIsDrawerOpen(false);
                           }}
-                          className={`underline-offset-4 hover:text-primary/80 transition-colors ${
-                            (item.href.startsWith('#') && pathname === '/' && activeSection === item.href.substring(1)) || (item.href === pathname)
-                              ? 'text-primary font-medium'
-                              : 'text-primary/60'
-                          }`}
+                          className={cn(
+                            "underline-offset-4 hover:text-primary/80 transition-colors",
+                            activeSection === item.href.substring(1) ? "text-primary font-medium" : "text-primary/60"
+                          )}
                         >
                           {item.name}
                         </a>
@@ -290,40 +278,116 @@ export function Navbar() {
                   </AnimatePresence>
                 </motion.ul>
 
-                {/* GitHub link for mobile */}
-                <Link
-                  href="https://github.com/kortix-ai/suna"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 h-7 px-2.5 text-xs font-medium rounded-full bg-transparent text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/30 transition-all duration-200"
-                  aria-label="GitHub Repository"
-                >
-                  <Github className="size-3.5" />
-                  <span className={`text-xs font-medium transition-opacity duration-200 ${starsLoading ? 'opacity-50' : 'opacity-100'}`}>
-                    ⭐ {formattedStars}
-                  </span>
-                </Link>
-
-                {/* Action buttons */}
                 <div className="flex flex-col gap-2">
                   {user ? (
                     <Link
                       href="/dashboard"
-                      className="bg-secondary h-8 flex items-center justify-center text-sm font-normal tracking-wide rounded-full text-primary-foreground dark:text-secondary-foreground w-full px-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_3px_3px_-1.5px_rgba(16,24,40,0.06),0_1px_1px_rgba(16,24,40,0.08)] border border-white/[0.12] hover:bg-secondary/80 transition-all ease-out active:scale-95"
+                      className="group relative inline-flex w-full"
                     >
-                      Dashboard
+                      <motion.div
+                        whileHover={{ y: -1 }}
+                        className="relative w-full rounded-full border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden"
+                      >
+                        {/* Gradient rim */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 rounded-full"
+                          style={{
+                            background:
+                              "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                            WebkitMask:
+                              "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                            WebkitMaskComposite: "xor" as any,
+                            maskComposite: "exclude",
+                            padding: 1,
+                            borderRadius: 24,
+                          }}
+                        />
+                        {/* Specular streak */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 top-0 h-6"
+                          style={{
+                            background:
+                              "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                            filter: "blur(6px)",
+                            mixBlendMode: "screen",
+                          }}
+                        />
+                        {/* Fine noise */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 opacity-30"
+                          style={{
+                            backgroundImage:
+                              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22/><feColorMatrix type=%22saturate%22 values=%220%22/><feComponentTransfer><feFuncA type=%22table%22 tableValues=%220 0.03%22/></feComponentTransfer></filter><rect width=%22100%%22 height=%22100%%22 filter=%22url(%23n)%22 /></svg>')",
+                            backgroundSize: "100px 100px",
+                            mixBlendMode: "overlay",
+                          }}
+                        />
+                        {/* Subtle glow pulse */}
+                        <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
+                        {/* Button content */}
+                        <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center justify-center gap-2 w-full">
+                          Dashboard
+                        </span>
+                      </motion.div>
                     </Link>
                   ) : (
                     <Link
                       href="/auth"
-                      className="bg-secondary h-8 flex items-center justify-center text-sm font-normal tracking-wide rounded-full text-primary-foreground dark:text-secondary-foreground w-full px-4 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_3px_3px_-1.5px_rgba(16,24,40,0.06),0_1px_1px_rgba(16,24,40,0.08)] border border-white/[0.12] hover:bg-secondary/80 transition-all ease-out active:scale-95"
+                      className="group relative inline-flex w-full"
                     >
-                      Try free
+                      <motion.div
+                        whileHover={{ y: -1 }}
+                        className="relative w-full rounded-full border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden"
+                      >
+                        {/* Gradient rim */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 rounded-full"
+                          style={{
+                            background:
+                              "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                            WebkitMask:
+                              "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                            WebkitMaskComposite: "xor" as any,
+                            maskComposite: "exclude",
+                            padding: 1,
+                            borderRadius: 24,
+                          }}
+                        />
+                        {/* Specular streak */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-0 top-0 h-6"
+                          style={{
+                            background:
+                              "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                            filter: "blur(6px)",
+                            mixBlendMode: "screen",
+                          }}
+                        />
+                        {/* Fine noise */}
+                        <div
+                          aria-hidden
+                          className="pointer-events-none absolute inset-0 opacity-30"
+                          style={{
+                            backgroundImage:
+                              "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22/><feColorMatrix type=%22saturate%22 values=%220%22/><feComponentTransfer><feFuncA type=%22table%22 tableValues=%220 0.03%22/></feComponentTransfer></filter><rect width=%22100%%22 height=%22100%%22 filter=%22url(%23n)%22 /></svg>')",
+                            backgroundSize: "100px 100px",
+                            mixBlendMode: "overlay",
+                          }}
+                        />
+                        {/* Subtle glow pulse */}
+                        <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
+                        {/* Button content */}
+                        <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center justify-center gap-2 w-full">
+                          Get Started
+                        </span>
+                      </motion.div>
                     </Link>
                   )}
-                  <div className="flex justify-between">
-                    <ThemeToggle />
-                  </div>
                 </div>
               </div>
             </motion.div>
@@ -331,5 +395,5 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </header>
-  ); 
+  );
 }
