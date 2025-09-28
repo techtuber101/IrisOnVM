@@ -272,7 +272,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = ({
                                 className="text-sm px-3 py-2 mx-0 my-0.5 flex items-center gap-2 cursor-pointer rounded-lg"
                                 onClick={() => handleQuickAction('playbooks')}
                             >
-                                <span className="font-medium">Playbooks</span>
+                                <span className="font-medium">Devices</span>
                             </DropdownMenuItem>
                             <TooltipProvider>
                                 <Tooltip>

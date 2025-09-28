@@ -28,8 +28,8 @@ import {
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = '16rem';
-const SIDEBAR_WIDTH_MOBILE = '18rem';
+const SIDEBAR_WIDTH = '18rem';
+const SIDEBAR_WIDTH_MOBILE = '20rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
 
@@ -41,6 +41,12 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  hoverMode: boolean;
+  setHoverMode: (hoverMode: boolean) => void;
+  isHovered: boolean;
+  setIsHovered: (isHovered: boolean) => void;
+  isDropdownOpen: boolean;
+  setIsDropdownOpen: (isDropdownOpen: boolean) => void;
 };
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
@@ -69,6 +75,9 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const [hoverMode, setHoverMode] = React.useState(false);
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const { isOpen: isDocumentModalOpen } = useDocumentModalStore();
 
   // This is the internal state of the sidebar.
@@ -92,8 +101,19 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-  }, [isMobile, setOpen, setOpenMobile]);
+    if (isMobile) {
+      return setOpenMobile((open) => !open);
+    }
+    
+    // Toggle between hover mode and normal mode
+    if (hoverMode) {
+      setHoverMode(false);
+      setOpen(true);
+    } else {
+      setHoverMode(true);
+      setOpen(false);
+    }
+  }, [isMobile, setOpen, setOpenMobile, hoverMode]);
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -118,7 +138,7 @@ function SidebarProvider({
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
-  const state = open ? 'expanded' : 'collapsed';
+  const state = (open || (hoverMode && (isHovered || isDropdownOpen))) ? 'expanded' : 'collapsed';
 
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
@@ -129,8 +149,14 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      hoverMode,
+      setHoverMode,
+      isHovered,
+      setIsHovered,
+      isDropdownOpen,
+      setIsDropdownOpen,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, hoverMode, setHoverMode, isHovered, setIsHovered, isDropdownOpen, setIsDropdownOpen],
   );
 
   return (
@@ -170,7 +196,7 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset';
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, hoverMode, setIsHovered, isDropdownOpen } = useSidebar();
 
   if (collapsible === 'none') {
     return (
@@ -220,6 +246,13 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      onMouseEnter={() => hoverMode && setIsHovered(true)}
+      onMouseLeave={() => {
+        // Close when mouse leaves, regardless of dropdown state
+        if (hoverMode) {
+          setIsHovered(false);
+        }
+      }}
     >
       {/* This is what handles the sidebar gap on desktop */}
       <div

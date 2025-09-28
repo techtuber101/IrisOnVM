@@ -87,11 +87,12 @@ const ThreadItem: React.FC<{
   setShowShareModal,
   isMobile 
 }) => {
+  const { hoverMode, setIsHovered, setIsDropdownOpen } = useSidebar();
   return (
     <SidebarMenuItem key={`thread-${thread.threadId}`} className="group/row">
       <SidebarMenuButton
         asChild
-        className={`relative ${isActive
+        className={`relative py-4 px-3 ${isActive
           ? 'bg-accent text-accent-foreground font-medium'
           : isSelected
             ? 'bg-primary/10'
@@ -110,18 +111,18 @@ const ThreadItem: React.FC<{
             {isThreadLoading ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2 flex-shrink-0" />
             ) : (
-              <ThreadIcon 
-                iconName={thread.iconName} 
-                className="mr-2" 
-                size={16} 
-              />
+            <ThreadIcon 
+              iconName={thread.iconName} 
+              className="mr-3" 
+              size={18} 
+            />
             )}
-            <span className="truncate">{thread.projectName}</span>
+            <span className="truncate text-sm">{thread.projectName}</span>
           </Link>
           
           {/* Checkbox - only visible on hover of this specific area */}
           <div
-            className="mr-1 flex-shrink-0 w-4 h-4 flex items-center justify-center group/checkbox"
+            className="mr-2 flex-shrink-0 w-5 h-5 flex items-center justify-center group/checkbox"
             onClick={(e) => toggleThreadSelection(thread.threadId, e)}
           >
             <div
@@ -135,15 +136,21 @@ const ThreadItem: React.FC<{
           </div>
 
           {/* Dropdown Menu - inline with content */}
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => {
+            setIsDropdownOpen(open);
+            if (open && hoverMode) {
+              setIsHovered(true);
+            } else if (!open && hoverMode) {
+              // Close sidebar when dropdown closes
+              setIsHovered(false);
+            }
+          }}>
             <DropdownMenuTrigger asChild>
               <button
-                className="cursor-pointer flex-shrink-0 w-4 h-4 flex items-center justify-center hover:bg-muted/50 rounded transition-all duration-150 text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100"
+                className="cursor-pointer flex-shrink-0 w-6 h-6 flex items-center justify-center hover:bg-muted/50 rounded transition-all duration-150 text-muted-foreground hover:text-foreground opacity-0 group-hover/row:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  // Ensure pointer events are enabled when dropdown opens
-                  document.body.style.pointerEvents = 'auto';
                 }}
               >
                 <MoreHorizontal className="h-4 w-4" />

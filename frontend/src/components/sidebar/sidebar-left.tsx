@@ -75,7 +75,7 @@ function FloatingMobileMenuButton() {
 export function SidebarLeft({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
-  const { state, setOpen, setOpenMobile } = useSidebar();
+  const { state, setOpen, setOpenMobile, hoverMode } = useSidebar();
   const isMobile = useIsMobile();
   const [user, setUser] = useState<{
     name: string;
@@ -172,7 +172,9 @@ export function SidebarLeft({
                 <TooltipTrigger asChild>
                   <SidebarTrigger className="h-8 w-8" />
                 </TooltipTrigger>
-                <TooltipContent>Toggle sidebar (CMD+B)</TooltipContent>
+                <TooltipContent>
+                  {hoverMode ? 'Switch to always open (CMD+B)' : 'Switch to hover mode (CMD+B)'}
+                </TooltipContent>
               </Tooltip>
             )}
           </div>

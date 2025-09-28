@@ -142,6 +142,7 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
     const [userDismissedUsage, setUserDismissedUsage] = useState(false);
     const [billingModalOpen, setBillingModalOpen] = useState(false);
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'general' | 'instructions' | 'knowledge' | 'triggers' | 'playbooks' | 'tools' | 'integrations' }>({ open: false, tab: 'general' });
+    const [showDevicesDialog, setShowDevicesDialog] = useState(false);
 
     const {
       selectedModel,
@@ -490,11 +491,11 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
                     <span className="text-xs font-medium">Triggers</span>
                   </button>
                   <button
-                    onClick={() => setAgentConfigDialog({ open: true, tab: 'playbooks' })}
+                    onClick={() => setShowDevicesDialog(true)}
                     className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-all duration-200 px-2.5 py-1.5 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border/30 flex-shrink-0 cursor-pointer relative pointer-events-auto"
                   >
                     <Workflow className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="text-xs font-medium">Playbooks</span>
+                    <span className="text-xs font-medium">Devices</span>
                   </button>
                 </div>
               </div>
@@ -527,6 +528,64 @@ export const ChatInput = forwardRef<ChatInputHandles, ChatInputProps>(
               initialTab={agentConfigDialog.tab}
             />
           )}
+          
+          {/* Devices Dialog */}
+          <Dialog open={showDevicesDialog} onOpenChange={setShowDevicesDialog}>
+            <DialogContent className="max-w-md mx-auto bg-transparent border-none shadow-none p-0 [&>button]:hidden">
+              <DialogTitle className="sr-only">Devices Feature Coming Soon</DialogTitle>
+              <div className="relative rounded-3xl border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden p-8 text-center">
+                {/* Gradient rim */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 rounded-3xl"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                    WebkitMask: "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                    WebkitMaskComposite: "xor" as any,
+                    maskComposite: "exclude",
+                    padding: 1,
+                    borderRadius: 24,
+                  }}
+                />
+                {/* Specular streak */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-24"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                    filter: "blur(6px)",
+                    mixBlendMode: "screen",
+                  }}
+                />
+                {/* Corner screws with close button on top right */}
+                <div className="pointer-events-none" aria-hidden>
+                  <div className="absolute left-3 top-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                  <button 
+                    onClick={() => setShowDevicesDialog(false)}
+                    className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-white/30 hover:bg-white/50 transition-colors cursor-pointer pointer-events-auto flex items-center justify-center"
+                  >
+                    <span className="text-white/80 text-[16px] leading-none">×</span>
+                  </button>
+                  <div className="absolute left-3 bottom-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                  <div className="absolute right-3 bottom-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                </div>
+                
+                <div className="relative z-10">
+                  <div className="mb-4 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
+                      <Workflow className="h-4 w-4 text-white/80" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-medium text-white/90 mb-2">Feature Coming Soon!</h3>
+                  <p className="text-sm text-white/70">
+                    You'll be able to connect devices in your world to transcend intelligence into your physical life
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     );
