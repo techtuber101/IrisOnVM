@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Bot, Menu, Plus, Zap, ChevronRight } from 'lucide-react';
+import { Bot, Menu, Plus, Zap, ChevronRight, Search } from 'lucide-react';
 
 import { NavAgents } from '@/components/sidebar/nav-agents';
 import { NavUserWithTeams } from '@/components/sidebar/nav-user-with-teams';
@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { usePathname, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import { useDocumentModalStore } from '@/lib/stores/use-document-modal-store';
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from '@/components/ui/dialog';
 
 function FloatingMobileMenuButton() {
   const { setOpenMobile, openMobile } = useSidebar();
@@ -91,6 +92,7 @@ export function SidebarLeft({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
+  const [showSearchDialog, setShowSearchDialog] = useState(false);
   const { isOpen: isDocumentModalOpen } = useDocumentModalStore();
 
   useEffect(() => {
@@ -180,7 +182,7 @@ export function SidebarLeft({
         <SidebarGroup>
           <Link href="/dashboard">
             <SidebarMenuButton 
-              className={cn('touch-manipulation', {
+              className={cn('touch-manipulation mb-1', {
                 'bg-accent text-accent-foreground font-medium': pathname === '/dashboard',
               })} 
               onClick={() => {
@@ -257,6 +259,75 @@ export function SidebarLeft({
               </SidebarMenuItem>
             </Collapsible>
           </SidebarMenu>
+          
+          {/* Search Button */}
+          <Dialog open={showSearchDialog} onOpenChange={setShowSearchDialog}>
+            <DialogTrigger asChild>
+              <SidebarMenuButton
+                className="touch-manipulation mt-1"
+                onClick={() => {
+                  if (isMobile) setOpenMobile(false);
+                }}
+              >
+                <Search className="h-4 w-4 mr-1" />
+                <span>Search</span>
+              </SidebarMenuButton>
+            </DialogTrigger>
+            <DialogContent className="max-w-md mx-auto bg-transparent border-none shadow-none p-0 [&>button]:hidden">
+              <DialogTitle className="sr-only">Search Feature Coming Soon</DialogTitle>
+              <div className="relative rounded-3xl border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden p-8 text-center">
+                {/* Gradient rim */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 rounded-3xl"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                    WebkitMask: "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                    WebkitMaskComposite: "xor" as any,
+                    maskComposite: "exclude",
+                    padding: 1,
+                    borderRadius: 24,
+                  }}
+                />
+                {/* Specular streak */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-24"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                    filter: "blur(6px)",
+                    mixBlendMode: "screen",
+                  }}
+                />
+                {/* Corner screws with close button on top right */}
+                <div className="pointer-events-none" aria-hidden>
+                  <div className="absolute left-3 top-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                  <button 
+                    onClick={() => setShowSearchDialog(false)}
+                    className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full bg-white/30 hover:bg-white/50 transition-colors cursor-pointer pointer-events-auto flex items-center justify-center"
+                  >
+                    <span className="text-white/80 text-[16px] leading-none">×</span>
+                  </button>
+                  <div className="absolute left-3 bottom-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                  <div className="absolute right-3 bottom-3 h-1.5 w-1.5 rounded-full bg-white/30" />
+                </div>
+                
+                <div className="relative z-10">
+                  <div className="mb-4 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
+                      <Search className="h-4 w-4 text-white/80" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-medium text-white/90 mb-2">Feature Coming Soon!</h3>
+                  <p className="text-sm text-white/70">
+                    Advanced search functionality is currently in development. Stay tuned for updates!
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </SidebarGroup>
         <NavAgents />
       </SidebarContent>

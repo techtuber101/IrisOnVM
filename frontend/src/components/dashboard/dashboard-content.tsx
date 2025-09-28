@@ -355,8 +355,23 @@ export function DashboardContent() {
                 {/* <ReleaseBadge className='hover:cursor-pointer' text="Custom Agents, Playbooks, and more!" link="/agents?tab=my-agents" /> */}
               </div>
             )}
-            <div className="flex-1 flex items-center justify-center px-4 py-8">
-              <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6">
+            <div className="flex-1 flex items-center justify-center px-4 py-8 relative">
+              {/* Spotlight effect flowing from title to chat input */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+              >
+                <div
+                  className="h-96 w-full max-w-[650px] blur-3xl opacity-11"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse 120% 80% at 50% 10%, rgba(60,100,200,0.3), rgba(65,105,205,0.2) 20%, rgba(70,110,210,0.15) 40%, rgba(75,115,215,0.08) 60%, rgba(80,120,220,0.04) 80%, rgba(255,255,255,0) 100%)",
+                    mixBlendMode: "screen",
+                  }}
+                />
+              </div>
+              
+              <div className="w-full max-w-[650px] flex flex-col items-center justify-center space-y-4 md:space-y-6 relative z-10">
                 <div className="flex flex-col items-center text-center w-full">
                   <p 
                     className="tracking-tight text-2xl md:text-3xl font-normal text-foreground/90"
