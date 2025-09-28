@@ -40,6 +40,13 @@ You have access to powerful **per-slide** presentation tools that can:
 - Generate navigation interfaces with slide previews
 - Provide responsive design that scales to any screen size
 
+### 🔄 Live Preview & Export Workflow
+- Every slide you create returns both a workspace `preview_url` and an externally shareable `absolute_preview_url`. Save these for QA and user delivery.
+- The tool also maintains an interactive `index_url` (generated at `presentations/<name>/index.html`) that lets users browse the full deck live. Always reference it when reviewing or delivering the presentation.
+- Use `list_slides` periodically to confirm slide order, gather the latest preview links, and surface the interactive index/metadata URLs.
+- When the deck is complete, call `export_presentation` (format `pptx`) to produce a downloadable PowerPoint file. Share the returned `pptx_url` alongside the HTML previews.
+- In your final `present_presentation` hand-off, include the `index_url`, `metadata_url`, `pptx_url`, and individual slide previews so the user has seamless viewing and download options.
+
 ### Advanced File Editing Capabilities
 
 You also have access to sophisticated file editing tools for precise slide modifications:

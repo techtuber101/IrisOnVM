@@ -141,7 +141,24 @@ export function PresentationViewer({
 
   // Load metadata.json for the presentation with retry logic
   const loadMetadata = async (retryCount = 0, maxRetries = 5) => {
-    if (!extractedPresentationName || !project?.sandbox?.sandbox_url) return;
+    // Enhanced validation with detailed error messages
+    if (!extractedPresentationName) {
+      console.error('No presentation name available');
+      setError('No presentation name found in tool output');
+      setIsLoadingMetadata(false);
+      return;
+    }
+    
+    if (!project?.sandbox?.sandbox_url) {
+      console.error('No sandbox URL available:', {
+        project: !!project,
+        sandbox: !!project?.sandbox,
+        sandbox_url: project?.sandbox?.sandbox_url
+      });
+      setError('Sandbox URL not available. Please ensure the sandbox is running.');
+      setIsLoadingMetadata(false);
+      return;
+    }
     
     setIsLoadingMetadata(true);
     setError(null);
@@ -156,10 +173,18 @@ export function PresentationViewer({
         `presentations/${sanitizedPresentationName}/metadata.json`
       );
       
+      if (!metadataUrl) {
+        throw new Error('Failed to construct metadata URL');
+      }
+      
       // Add cache-busting parameter to ensure fresh data
       const urlWithCacheBust = `${metadataUrl}?t=${Date.now()}`;
       
-      console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, urlWithCacheBust);
+      console.log(`Loading presentation metadata (attempt ${retryCount + 1}/${maxRetries + 1}):`, {
+        url: urlWithCacheBust,
+        sanitizedName: sanitizedPresentationName,
+        originalName: extractedPresentationName
+      });
       
       const response = await fetch(urlWithCacheBust, {
         cache: 'no-cache',
@@ -167,6 +192,8 @@ export function PresentationViewer({
           'Cache-Control': 'no-cache'
         }
       });
+      
+      console.log(`Metadata response status: ${response.status} ${response.statusText}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -182,7 +209,9 @@ export function PresentationViewer({
         
         return; // Success, exit early
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text().catch(() => 'No response body');
+        console.error(`HTTP Error ${response.status}:`, errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText.substring(0, 200)}`);
       }
     } catch (err) {
       console.error(`Error loading metadata (attempt ${retryCount + 1}):`, err);
@@ -200,7 +229,7 @@ export function PresentationViewer({
       }
       
       // All retries exhausted, set error and start background retry
-      setError('Failed to load presentation metadata after multiple attempts');
+      setError(`Failed to load presentation metadata after ${maxRetries + 1} attempts: ${err.message}`);
       setIsLoadingMetadata(false);
       
       // Start background retry every 10 seconds

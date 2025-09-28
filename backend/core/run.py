@@ -276,9 +276,14 @@ class PromptManager:
     async def build_system_prompt(model_name: str, agent_config: Optional[dict], 
                                   thread_id: str, 
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
-                                  client=None) -> dict:
+                                  client=None, user_first_name: Optional[str] = None) -> dict:
         
         default_system_content = get_system_prompt()
+        
+        # Add personalized greeting with user's first name if available
+        if user_first_name:
+            personalization = f"\n\n# PERSONALIZATION\nYou are speaking with {user_first_name}. Feel free to use their name occasionally in your responses to make the interaction more personal and friendly. For example:\n- \"I'll help you with that, {user_first_name}.\"\n- \"{user_first_name}, I've completed the task for you.\"\n- \"Let me get that done for you, {user_first_name}.\"\nUse their name naturally and sparingly - not in every response, but when it feels appropriate to add a personal touch."
+            default_system_content = default_system_content + personalization
         
         if "anthropic" not in model_name.lower():
             sample_response_path = os.path.join(os.path.dirname(__file__), 'prompts/samples/1.txt')
@@ -464,6 +469,9 @@ class AgentRunner:
         
         if not self.account_id:
             raise ValueError(f"Thread {self.config.thread_id} has no associated account")
+        
+        # Get user's first name for personalized responses
+        self.user_first_name = await self._get_user_first_name()
 
         project = await self.client.table('projects').select('*').eq('project_id', self.config.project_id).execute()
         if not project.data or len(project.data) == 0:
@@ -558,6 +566,50 @@ class AgentRunner:
         mcp_manager = MCPManager(self.thread_manager, self.account_id)
         return await mcp_manager.register_mcp_tools(self.config.agent_config)
     
+    async def _get_user_first_name(self) -> Optional[str]:
+        """Get the user's first name from their profile for personalized responses."""
+        try:
+            # Get the primary owner user ID from the account
+            account_response = await self.client.table('basejump.accounts').select('primary_owner_user_id').eq('id', self.account_id).execute()
+            
+            if not account_response.data or len(account_response.data) == 0:
+                return None
+                
+            user_id = account_response.data[0].get('primary_owner_user_id')
+            if not user_id:
+                return None
+            
+            # Get user metadata from auth.users
+            user_response = await self.client.table('auth.users').select('user_metadata, email').eq('id', user_id).execute()
+            
+            if not user_response.data or len(user_response.data) == 0:
+                return None
+                
+            user_data = user_response.data[0]
+            user_metadata = user_data.get('user_metadata', {})
+            email = user_data.get('email', '')
+            
+            # Extract first name from user_metadata.name or email
+            if user_metadata and user_metadata.get('name'):
+                # Extract first name from full name
+                full_name = user_metadata['name'].strip()
+                first_name = full_name.split(' ')[0]
+                return first_name if first_name else None
+            
+            if email:
+                # Extract name from email prefix
+                email_prefix = email.split('@')[0]
+                # Remove numbers and special characters, capitalize first letter
+                import re
+                clean_name = re.sub(r'[0-9._-]', '', email_prefix).lower()
+                return clean_name.capitalize() if clean_name else None
+                
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get user first name: {e}")
+            return None
+
     def get_max_tokens(self) -> Optional[int]:
         logger.debug(f"get_max_tokens called with: '{self.config.model_name}' (type: {type(self.config.model_name)})")
         if "sonnet" in self.config.model_name.lower():
@@ -578,7 +630,7 @@ class AgentRunner:
         system_message = await PromptManager.build_system_prompt(
             self.config.model_name, self.config.agent_config, 
             self.config.thread_id, 
-            mcp_wrapper_instance, self.client
+            mcp_wrapper_instance, self.client, self.user_first_name
         )
         logger.info(f"📝 System message built once: {len(str(system_message.get('content', '')))} chars")
         logger.debug(f"model_name received: {self.config.model_name}")

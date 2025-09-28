@@ -24,6 +24,7 @@ class SandboxToolsBase(Tool):
         self._sandbox = None
         self._sandbox_id = None
         self._sandbox_pass = None
+        self._sandbox_url = None
 
     async def _ensure_sandbox(self) -> AsyncSandbox:
         """Ensure we have a valid sandbox instance, retrieving it from the project if needed.
@@ -92,11 +93,39 @@ class SandboxToolsBase(Tool):
                     self._sandbox_id = sandbox_id
                     self._sandbox_pass = sandbox_pass
                     self._sandbox = await get_or_start_sandbox(self._sandbox_id)
+                    self._sandbox_url = website_url
                 else:
                     # Use existing sandbox metadata
                     self._sandbox_id = sandbox_info['id']
                     self._sandbox_pass = sandbox_info.get('pass')
                     self._sandbox = await get_or_start_sandbox(self._sandbox_id)
+                    self._sandbox_url = sandbox_info.get('sandbox_url')
+
+                    if not self._sandbox_url:
+                        try:
+                            preview_link = await self._sandbox.get_preview_link(8080)
+                            if hasattr(preview_link, 'url'):
+                                self._sandbox_url = preview_link.url
+                                token = getattr(preview_link, 'token', sandbox_info.get('token'))
+                            else:
+                                preview_str = str(preview_link)
+                                if "url='" in preview_str:
+                                    self._sandbox_url = preview_str.split("url='")[1].split("'")[0]
+                                token = sandbox_info.get('token')
+
+                            if self._sandbox_url:
+                                await client.table('projects').update({
+                                    'sandbox': {
+                                        **sandbox_info,
+                                        'sandbox_url': self._sandbox_url,
+                                        'token': token
+                                    }
+                                }).eq('project_id', self.project_id).execute()
+                        except Exception:
+                            logger.warning(
+                                f"Unable to refresh sandbox preview URL for sandbox {self._sandbox_id}",
+                                exc_info=True
+                            )
 
             except Exception as e:
                 logger.error(f"Error retrieving/creating sandbox for project {self.project_id}: {str(e)}", exc_info=True)
@@ -117,6 +146,11 @@ class SandboxToolsBase(Tool):
         if self._sandbox_id is None:
             raise RuntimeError("Sandbox ID not initialized. Call _ensure_sandbox() first.")
         return self._sandbox_id
+
+    @property
+    def sandbox_url(self) -> Optional[str]:
+        """Return the sandbox preview URL if available."""
+        return self._sandbox_url
 
     def clean_path(self, path: str) -> str:
         """Clean and normalize a path to be relative to /workspace."""

@@ -128,7 +128,17 @@ export function generateGreeting(options: GreetingOptions = {}): string {
     const randomTimeGreeting = timeGreetings[Math.floor(Math.random() * timeGreetings.length)];
     
     if (name) {
-      return `${randomTimeGreeting}, ${name}`;
+      // Check if the greeting already ends with a comma and question mark
+      if (randomTimeGreeting.includes('?') && randomTimeGreeting.includes(',')) {
+        // For greetings like "Good evening, how can I help you?" - keep as is without name
+        return randomTimeGreeting;
+      } else if (randomTimeGreeting.includes('?')) {
+        // Add name before the question
+        return `${name}, ${randomTimeGreeting}`;
+      } else {
+        // Add name after the greeting
+        return `${randomTimeGreeting}, ${name}`;
+      }
     }
     return randomTimeGreeting;
   }
@@ -136,12 +146,18 @@ export function generateGreeting(options: GreetingOptions = {}): string {
   if (useRandom) {
     const randomGreeting = randomGreetings[Math.floor(Math.random() * randomGreetings.length)];
     
-    if (name && randomGreeting.includes('?')) {
-      // For questions, add the name at the beginning
-      return `${name}, ${randomGreeting.toLowerCase()}`;
-    } else if (name && !randomGreeting.includes('?')) {
-      // For statements, add the name at the end
-      return `${randomGreeting}, ${name}`;
+    if (name) {
+      // Check if the greeting already has a comma and question mark
+      if (randomGreeting.includes('?') && randomGreeting.includes(',')) {
+        // For greetings like "Good evening, how can I help you?" - keep as is without name
+        return randomGreeting;
+      } else if (randomGreeting.includes('?')) {
+        // Add name before the question
+        return `${name}, ${randomGreeting}`;
+      } else {
+        // Add name after the greeting
+        return `${randomGreeting}, ${name}`;
+      }
     }
     
     return randomGreeting;

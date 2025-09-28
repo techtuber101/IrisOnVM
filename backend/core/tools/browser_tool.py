@@ -8,6 +8,9 @@ import json
 import base64
 import io
 import traceback
+import uuid
+from datetime import datetime
+from typing import Optional
 from PIL import Image
 from core.utils.config import config
 
@@ -29,6 +32,124 @@ class BrowserTool(SandboxToolsBase):
     def __init__(self, project_id: str, thread_id: str, thread_manager: ThreadManager):
         super().__init__(project_id, thread_manager)
         self.thread_id = thread_id
+
+    def _normalize_base64_image(self, base64_string: str) -> tuple[str, Optional[str]]:
+        """Strip metadata prefix and whitespace from a base64 image string."""
+        if not base64_string:
+            return "", None
+
+        base64_string = base64_string.strip()
+        mime_type: Optional[str] = None
+
+        if base64_string.startswith('data:'):
+            header, _, data = base64_string.partition(',')
+            if ';' in header:
+                mime_fragment = header.split(';', 1)[0]
+                mime_type = mime_fragment.replace('data:', '') or None
+            base64_string = data
+
+        # Remove any whitespace/newline characters that may break decoding
+        base64_string = base64_string.replace('\n', '').replace('\r', '').strip()
+        return base64_string, mime_type
+
+    async def _ensure_screenshot_dir(self) -> str:
+        """Ensure the browser screenshot directory exists inside the sandbox."""
+        await self._ensure_sandbox()
+        screenshot_dir = f"{self.workspace_path}/browser_screenshots"
+        try:
+            await self.sandbox.fs.create_folder(screenshot_dir, "755")
+        except Exception:
+            # Folder likely already exists; ignore errors from create_folder
+            pass
+        return screenshot_dir
+
+    async def _save_screenshot_to_workspace(self, image_bytes: bytes, mime_type: Optional[str]) -> dict:
+        """Persist a screenshot to the sandbox workspace for browser previews."""
+        screenshot_dir = await self._ensure_screenshot_dir()
+        extension = 'png'
+
+        if mime_type:
+            lowered = mime_type.lower()
+            if 'jpeg' in lowered or 'jpg' in lowered:
+                extension = 'jpg'
+            elif 'webp' in lowered:
+                extension = 'webp'
+            elif 'gif' in lowered:
+                extension = 'gif'
+
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')
+        filename = f"screenshot_{timestamp}_{uuid.uuid4().hex[:6]}.{extension}"
+        file_path = f"{screenshot_dir}/{filename}"
+
+        await self.sandbox.fs.upload_file(image_bytes, file_path)
+
+        relative_path = f"browser_screenshots/{filename}"
+        workspace_path = f"/workspace/{relative_path}"
+        sandbox_url = self.sandbox_url or getattr(self, '_sandbox_url', None)
+        image_url = f"{sandbox_url}/{relative_path}" if sandbox_url else None
+
+        return {
+            "file_path": workspace_path,
+            "preview_url": workspace_path,
+            "relative_path": relative_path,
+            "image_url": image_url
+        }
+
+    async def _handle_screenshot_result(self, screenshot_data: str) -> dict:
+        """Validate, persist, and return metadata for a screenshot payload."""
+        info: dict = {}
+
+        normalized_data, mime_type = self._normalize_base64_image(screenshot_data)
+        if not normalized_data:
+            info['error'] = "Base64 string is empty or invalid"
+            return info
+
+        is_valid, validation_message = self._validate_base64_image(normalized_data)
+        info['validation_message'] = validation_message
+
+        if not is_valid:
+            info['error'] = validation_message
+            info['base64'] = normalized_data
+            return info
+
+        try:
+            image_bytes = base64.b64decode(normalized_data, validate=True)
+        except Exception as decode_error:
+            error_message = f"Base64 decoding failed: {decode_error}"
+            logger.error(error_message)
+            info['error'] = error_message
+            info['base64'] = normalized_data
+            return info
+
+        info['mime_type'] = mime_type
+
+        # Try uploading to Supabase storage first for globally accessible URLs
+        try:
+            uploaded_url = await upload_base64_image(normalized_data)
+            info['image_url'] = uploaded_url
+            info['storage'] = 'supabase'
+        except Exception as upload_error:
+            logger.warning(f"Supabase upload failed, falling back to sandbox storage: {upload_error}")
+            info['upload_error'] = str(upload_error)
+
+        # Persist inside the sandbox when Supabase upload is unavailable
+        if not info.get('image_url'):
+            try:
+                workspace_info = await self._save_screenshot_to_workspace(image_bytes, mime_type)
+                info.update(workspace_info)
+                info['storage'] = 'sandbox'
+            except Exception as storage_error:
+                error_message = f"Failed to store screenshot in sandbox: {storage_error}"
+                logger.error(error_message)
+                info['error'] = error_message
+                info['base64'] = normalized_data
+                return info
+
+        # If we still do not have a direct URL, keep the base64 for downstream fallback rendering
+        if not info.get('image_url'):
+            info['base64'] = normalized_data
+
+        return info
     
     def _validate_base64_image(self, base64_string: str, max_size_mb: int = 10) -> tuple[bool, str]:
         """
@@ -43,20 +164,24 @@ class BrowserTool(SandboxToolsBase):
         """
         try:
             # Check if data exists and has reasonable length
-            if not base64_string or len(base64_string) < 10:
+            if not base64_string or len(base64_string.strip()) < 10:
                 return False, "Base64 string is empty or too short"
             
             # Remove data URL prefix if present (data:image/jpeg;base64,...)
+            base64_string = base64_string.strip()
             if base64_string.startswith('data:'):
                 try:
                     base64_string = base64_string.split(',', 1)[1]
                 except (IndexError, ValueError):
                     return False, "Invalid data URL format"
+
+            # Remove whitespace/newlines which may be inserted by some providers
+            base64_string = base64_string.replace('\n', '').replace('\r', '').strip()
             
             # Check if string contains only valid base64 characters
             # Base64 alphabet: A-Z, a-z, 0-9, +, /, = (padding)
             import re
-            if not re.match(r'^[A-Za-z0-9+/]*={0,2}$', base64_string):
+            if not re.fullmatch(r'[A-Za-z0-9+/]*={0,2}', base64_string):
                 return False, "Invalid base64 characters detected"
             
             # Check if base64 string length is valid (must be multiple of 4)
@@ -219,31 +344,68 @@ class BrowserTool(SandboxToolsBase):
 
                     logger.debug("Stagehand API request completed successfully")
 
+                    browser_state_payload = dict(result)
+
                     if "screenshot_base64" in result:
                         try:
-                            screenshot_data = result["screenshot_base64"]
-                            is_valid, validation_message = self._validate_base64_image(screenshot_data)
-                            
-                            if is_valid:
-                                logger.debug(f"Screenshot validation passed: {validation_message}")
-                                image_url = await upload_base64_image(screenshot_data)
-                                result["image_url"] = image_url
-                                logger.debug(f"Uploaded screenshot to {image_url}")
-                            else:
-                                logger.warning(f"Screenshot validation failed: {validation_message}")
-                                result["image_validation_error"] = validation_message
-                                
-                            del result["screenshot_base64"]
-                            
-                        except Exception as e:
-                            logger.error(f"Failed to process screenshot: {e}")
-                            result["image_upload_error"] = str(e)
-                    
+                            screenshot_info = await self._handle_screenshot_result(result["screenshot_base64"])
+                        except Exception as screenshot_error:
+                            logger.error("Unexpected error while handling screenshot", exc_info=True)
+                            screenshot_info = {"error": str(screenshot_error)}
+
+                        # Remove raw base64 from the agent-facing payload
+                        result.pop("screenshot_base64", None)
+
+                        if screenshot_info.get("image_url"):
+                            result["image_url"] = screenshot_info["image_url"]
+                            browser_state_payload["image_url"] = screenshot_info["image_url"]
+                            logger.debug(f"Screenshot available at {screenshot_info['image_url']}")
+
+                        if screenshot_info.get("preview_url"):
+                            result["preview_url"] = screenshot_info["preview_url"]
+                            browser_state_payload["preview_url"] = screenshot_info["preview_url"]
+
+                        if screenshot_info.get("file_path"):
+                            browser_state_payload["file_path"] = screenshot_info["file_path"]
+                            result["screenshot_file"] = screenshot_info["file_path"]
+
+                        if screenshot_info.get("relative_path"):
+                            browser_state_payload["relative_path"] = screenshot_info["relative_path"]
+                            result["screenshot_path"] = screenshot_info["relative_path"]
+
+                        if screenshot_info.get("storage"):
+                            browser_state_payload["storage"] = screenshot_info["storage"]
+
+                        if screenshot_info.get("validation_message"):
+                            browser_state_payload["validation_message"] = screenshot_info["validation_message"]
+
+                        if screenshot_info.get("upload_error") and not screenshot_info.get("image_url"):
+                            logger.warning(f"Screenshot upload failed: {screenshot_info['upload_error']}")
+                            result["image_upload_error"] = screenshot_info["upload_error"]
+                            result["screenshot_issue"] = f"Screenshot upload issue: {screenshot_info['upload_error']}"
+                            browser_state_payload["screenshot_upload_error"] = screenshot_info["upload_error"]
+
+                        if screenshot_info.get("error"):
+                            logger.warning(f"Screenshot processing issue: {screenshot_info['error']}")
+                            result["screenshot_issue"] = screenshot_info["error"]
+                            browser_state_payload["screenshot_error"] = screenshot_info["error"]
+                            if not screenshot_info.get("image_url"):
+                                result["image_validation_error"] = screenshot_info["error"]
+
+                        base64_fallback = screenshot_info.get("base64")
+                        if base64_fallback:
+                            browser_state_payload["screenshot_base64"] = base64_fallback
+                        else:
+                            browser_state_payload.pop("screenshot_base64", None)
+                    else:
+                        browser_state_payload.pop("screenshot_base64", None)
+
+                    browser_state_payload["input"] = params
                     result["input"] = params
                     added_message = await self.thread_manager.add_message(
                         thread_id=self.thread_id,
                         type="browser_state",
-                        content=result,
+                        content=browser_state_payload,
                         is_llm_message=False
                     )
 
@@ -263,12 +425,22 @@ class BrowserTool(SandboxToolsBase):
                         clean_result["action"] = result["action"]
                     if result.get("image_url"):  # This is screenshot_base64 converted to image_url
                         clean_result["image_url"] = result["image_url"]
-                    
+                    if result.get("preview_url"):
+                        clean_result["preview_url"] = result["preview_url"]
+                    if result.get("screenshot_path"):
+                        clean_result["screenshot_path"] = result["screenshot_path"]
+                    if result.get("screenshot_file"):
+                        clean_result["screenshot_file"] = result["screenshot_file"]
+                    if browser_state_payload.get("storage"):
+                        clean_result["image_storage"] = browser_state_payload.get("storage")
+
                     # Include any error context that's useful for the agent
                     if result.get("image_validation_error"):
                         clean_result["screenshot_issue"] = f"Screenshot processing issue: {result['image_validation_error']}"
                     if result.get("image_upload_error"):
                         clean_result["screenshot_issue"] = f"Screenshot upload issue: {result['image_upload_error']}"
+                    if result.get("screenshot_issue"):
+                        clean_result["screenshot_issue"] = result["screenshot_issue"]
                     clean_result["message_id"] = added_message.get("message_id")
 
                     if clean_result.get("success"):

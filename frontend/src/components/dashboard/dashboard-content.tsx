@@ -97,8 +97,28 @@ export function DashboardContent() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const { user } = useAuth();
 
-  // Generate personalized greeting
-  const greeting = getUserGreeting(user);
+  // Generate personalized greeting and change it every 3 minutes
+  const [greeting, setGreeting] = useState<string>('What would you like to do today?');
+  
+  // Set initial greeting and update every 3 minutes
+  React.useEffect(() => {
+    if (!user) return;
+    
+    // Set initial greeting
+    const updateGreeting = () => {
+      const personalizedGreeting = getUserGreeting(user);
+      setGreeting(personalizedGreeting);
+    };
+    
+    // Set initial greeting immediately
+    updateGreeting();
+    
+    // Set up timer to change greeting every 3 minutes (180,000 ms)
+    const interval = setInterval(updateGreeting, 3 * 60 * 1000);
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Tour integration
   const {

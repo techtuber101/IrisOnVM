@@ -104,6 +104,10 @@ RUN npm ci
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Also install dependencies from the sandbox docker directory
+COPY core/sandbox/docker/requirements.txt ./sandbox_requirements.txt
+RUN pip install --no-cache-dir -r sandbox_requirements.txt
+
 # Install Playwright and browsers with system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # Then install dependencies and browsers
@@ -130,6 +134,9 @@ ENV VITE_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS=--max-old-space-size=2048
 # Add Chrome flags to prevent multiple tabs/windows
 ENV CHROME_FLAGS="--single-process --no-first-run --no-default-browser-check --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-breakpad --disable-component-extensions-with-background-pages --disable-dev-shm-usage --disable-extensions --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-renderer-backgrounding --enable-features=NetworkServiceInProcess2 --force-color-profile=srgb --metrics-recording-only --mute-audio --no-sandbox --disable-gpu"
+
+# Create workspace directory
+RUN mkdir -p /workspace && chmod 755 /workspace
 
 # Set up supervisor configuration
 RUN mkdir -p /var/log/supervisor

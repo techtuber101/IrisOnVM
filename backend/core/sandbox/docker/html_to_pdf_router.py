@@ -17,8 +17,10 @@ from pydantic import BaseModel, Field
 
 try:
     from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
 except ImportError:
-    raise ImportError("Playwright is not installed. Please install it with: pip install playwright")
+    PLAYWRIGHT_AVAILABLE = False
+    print("Warning: Playwright is not installed. PDF conversion will be disabled.")
 
 try:
     from PyPDF2 import PdfWriter, PdfReader
@@ -214,6 +216,9 @@ class PresentationToPDFAPI:
             temp_path = Path(temp_dir)
             
             # Launch browser
+            if not PLAYWRIGHT_AVAILABLE:
+                raise HTTPException(status_code=503, detail="PDF conversion not available: Playwright not installed")
+            
             async with async_playwright() as p:
                 print("🌐 Launching browser...")
                 browser = await p.chromium.launch(
