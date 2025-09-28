@@ -936,9 +936,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         if (!textToRender && (streamHookStatus === 'streaming' || streamHookStatus === 'connecting')) {
                                                                             return (
                                                                                 <div className="flex items-center gap-1 py-1 ">
-                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000" />
-                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-150" />
-                                                                                    <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-300" />
+                                                                                    <div className="h-3 w-3 rounded-full bg-primary/40" 
+                                                                                         style={{
+                                                                                           animation: 'breathe 3s ease-in-out infinite'
+                                                                                         }} />
                                                                                 </div>
                                                                             );
                                                                         }
@@ -1103,9 +1104,10 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                         {/* Streaming indicator content */}
                                         <div className="max-w-[90%] px-4 py-3 text-sm">
                                             <div className="flex items-center gap-1.5 py-1">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse duration-1000" />
-                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse duration-1000 delay-150" />
-                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/50 animate-pulse duration-1000 delay-300" />
+                                                <div className="h-3 w-3 rounded-full bg-primary/40" 
+                                                     style={{
+                                                       animation: 'breathe 3s ease-in-out infinite'
+                                                     }} />
                                             </div>
                                         </div>
                                     </div>

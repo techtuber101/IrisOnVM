@@ -276,22 +276,22 @@ function ComparisonTable() {
   );
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 mt-16">
-      <h3 className="text-2xl font-semibold text-center mb-8 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 mt-16">
+      <h3 className="text-xl sm:text-2xl font-semibold text-center mb-8 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
         Compare All Features
       </h3>
       
       <GlassCard className="overflow-visible">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-left p-6 font-semibold text-white/90">Features</th>
-                <th className="text-center p-6 font-semibold text-white/90">Free</th>
-                <th className="text-center p-6 font-semibold text-white/90">Iris Air</th>
-                <th className="text-center p-6 font-semibold text-white/90">Iris Pro</th>
-                <th className="text-center p-6 font-semibold text-white/90">Iris Ultra</th>
-                <th className="text-center p-6 font-semibold text-white/90">Enterprise</th>
+                <th className="text-left p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Features</th>
+                <th className="text-center p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Free</th>
+                <th className="text-center p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Iris Air</th>
+                <th className="text-center p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Iris Pro</th>
+                <th className="text-center p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Iris Ultra</th>
+                <th className="text-center p-4 sm:p-6 font-semibold text-white/90 text-sm sm:text-base">Enterprise</th>
               </tr>
             </thead>
             <tbody>
@@ -303,13 +303,13 @@ function ComparisonTable() {
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
-                          <td className="p-6 font-medium text-white/80">
+                          <td className="p-4 sm:p-6 font-medium text-white/80 text-sm sm:text-base">
                             <div className="flex items-center gap-2">
                               <span>{feature.name}</span>
                               {feature.hasInfo && <InfoIcon featureName={feature.name} />}
                             </div>
                           </td>
-                  <td className="p-6 text-center text-white/70">
+                  <td className="p-4 sm:p-6 text-center text-white/70 text-sm sm:text-base">
                     {typeof feature.free === 'boolean' ? (
                       <div className="flex justify-center items-center">
                         {feature.free ? <CheckIcon /> : <CrossIcon />}
@@ -318,7 +318,7 @@ function ComparisonTable() {
                       <span className="text-white/70">{feature.free}</span>
                     )}
                   </td>
-                  <td className="p-6 text-center text-white/70">
+                  <td className="p-4 sm:p-6 text-center text-white/70 text-sm sm:text-base">
                     {typeof feature.air === 'boolean' ? (
                       <div className="flex justify-center items-center">
                         {feature.air ? <CheckIcon /> : <CrossIcon />}
@@ -327,7 +327,7 @@ function ComparisonTable() {
                       <span className="text-white/70">{feature.air}</span>
                     )}
                   </td>
-                  <td className="p-6 text-center text-white/70">
+                  <td className="p-4 sm:p-6 text-center text-white/70 text-sm sm:text-base">
                     {typeof feature.pro === 'boolean' ? (
                       <div className="flex justify-center items-center">
                         {feature.pro ? <CheckIcon /> : <CrossIcon />}
@@ -336,7 +336,7 @@ function ComparisonTable() {
                       <span className="text-white/70">{feature.pro}</span>
                     )}
                   </td>
-                  <td className="p-6 text-center text-white/70">
+                  <td className="p-4 sm:p-6 text-center text-white/70 text-sm sm:text-base">
                     {typeof feature.ultra === 'boolean' ? (
                       <div className="flex justify-center items-center">
                         {feature.ultra ? <CheckIcon /> : <CrossIcon />}
@@ -345,7 +345,7 @@ function ComparisonTable() {
                       <span className="text-white/70">{feature.ultra}</span>
                     )}
                   </td>
-                  <td className="p-6 text-center text-white/70">
+                  <td className="p-4 sm:p-6 text-center text-white/70 text-sm sm:text-base">
                     {typeof feature.enterprise === 'boolean' ? (
                       <div className="flex justify-center items-center">
                         {feature.enterprise ? <CheckIcon /> : <CrossIcon />}
@@ -387,8 +387,8 @@ export function PricingSection() {
       {/* Billing Toggle */}
       <BillingToggle isYearly={isYearly} onToggle={setIsYearly} />
 
-              {/* Pricing grid - 4 columns */}
-              <div className="grid min-[650px]:grid-cols-2 min-[1000px]:grid-cols-4 gap-5 w-full max-w-7xl mx-auto px-6">
+              {/* Pricing grid - responsive columns */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 w-full max-w-7xl mx-auto px-4 sm:px-6">
         {siteConfig.cloudPricingItems.filter(tier => !tier.name.toLowerCase().includes('enterprise')).map((tier) => {
           const meta = getTierMeta(tier.name);
           const isEnterprise = meta.isEnterprise;
@@ -414,7 +414,7 @@ export function PricingSection() {
               )}
             >
               {/* Header / Price */}
-              <div className="p-5 flex flex-col gap-3 flex-1">
+              <div className="p-4 sm:p-5 flex flex-col gap-3 flex-1">
                 <p className="text-sm flex items-center">
                   <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
                     {tier.name}
@@ -440,7 +440,7 @@ export function PricingSection() {
                   </span>
                 </div>
 
-                <p className="text-sm text-white/70">{tier.description}</p>
+                <p className="text-xs sm:text-sm text-white/70">{tier.description}</p>
 
                 {/* Coins / Enterprise badge - Always show a badge for consistent spacing */}
                 <div className="h-6 flex items-center">
@@ -458,7 +458,7 @@ export function PricingSection() {
               </div>
 
               {/* CTA */}
-              <div className="px-5 pb-5 mt-auto">
+              <div className="px-4 sm:px-5 pb-4 sm:pb-5 mt-auto">
                 {isEnterprise ? (
                   <Link
                     href="/contact"
@@ -488,7 +488,7 @@ export function PricingSection() {
       </div>
 
       {/* Enterprise Card */}
-      <div className="w-full max-w-lg mx-auto px-6 mt-4">
+      <div className="w-full max-w-lg mx-auto px-4 sm:px-6 mt-4">
         <GlassCard className="p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1">

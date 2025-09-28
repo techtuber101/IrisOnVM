@@ -12,9 +12,19 @@ This module provides a unified interface for making API calls to different LLM p
 
 from typing import Union, Dict, Any, Optional, AsyncGenerator, List
 import os
+import asyncio
+import time
+from datetime import datetime, timedelta
 import litellm
 from litellm.router import Router
 from litellm.files.main import ModelResponse
+from litellm.exceptions import (
+    Timeout as LiteLLMTimeout,
+    RateLimitError as LiteLLMRateLimit,
+    AuthenticationError as LiteLLMAuth,
+    ServiceUnavailableError as LiteLLMServiceUnavailable,
+    APIError as LiteLLMAPIError
+)
 from core.utils.logger import logger
 from core.utils.config import config
 
@@ -25,11 +35,46 @@ litellm.drop_params = True
 
 # Constants
 MAX_RETRIES = 3
+PRIMARY_MODEL_RETRIES = 2  # Additional retries for primary model before fallback
+REQUEST_TIMEOUT = 60  # Request timeout in seconds
+CIRCUIT_BREAKER_THRESHOLD = 5  # Number of failures before circuit opens
+CIRCUIT_BREAKER_TIMEOUT = 300  # Circuit breaker timeout in seconds
+HEALTH_CHECK_INTERVAL = 60  # Health check interval in seconds
+
+# Circuit breaker state tracking
+circuit_breaker_state = {}
+model_health_status = {}
+last_health_check = {}
+
 provider_router = None
 
 
 class LLMError(Exception):
     """Base exception for LLM-related errors."""
+    pass
+
+class LLMTimeoutError(LLMError):
+    """Raised when LLM request times out."""
+    pass
+
+class LLMRateLimitError(LLMError):
+    """Raised when LLM rate limit is exceeded."""
+    pass
+
+class LLMQuotaExceededError(LLMError):
+    """Raised when LLM quota is exceeded."""
+    pass
+
+class LLMAuthenticationError(LLMError):
+    """Raised when LLM authentication fails."""
+    pass
+
+class LLMServiceUnavailableError(LLMError):
+    """Raised when LLM service is unavailable."""
+    pass
+
+class LLMRetryError(LLMError):
+    """Raised when all retry attempts are exhausted."""
     pass
 
 def setup_api_keys() -> None:
@@ -74,12 +119,29 @@ def setup_api_keys() -> None:
 
 def setup_provider_router(openai_compatible_api_key: str = None, openai_compatible_api_base: str = None):
     global provider_router
-    # Restrict routing strictly to Gemini 2.5 Flash only
+    # Configure primary model with fallbacks
     model_list = [
         {
             "model_name": "gemini/gemini-2.5-flash",
             "litellm_params": {
                 "model": "gemini/gemini-2.5-flash",
+            },
+            "fallbacks": [
+                "openai/gpt-5-mini",
+                "openai/gpt-5", 
+                "gemini/gemini-2.5-flash"
+            ]
+        },
+        {
+            "model_name": "openai/gpt-5-mini",
+            "litellm_params": {
+                "model": "openai/gpt-5-mini",
+            },
+        },
+        {
+            "model_name": "openai/gpt-5",
+            "litellm_params": {
+                "model": "openai/gpt-5",
             },
         },
     ]
@@ -87,7 +149,13 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
 
 
 def get_openrouter_fallback(model_name: str) -> Optional[str]:
-    """Fallbacks disabled: always return None to force Gemini only."""
+    """Return fallback model based on primary model."""
+    if model_name == "gemini/gemini-2.5-flash":
+        return "openai/gpt-5-mini"
+    elif model_name == "openai/gpt-5-mini":
+        return "openai/gpt-5"
+    elif model_name == "openai/gpt-5":
+        return "gemini/gemini-2.5-flash"
     return None
 
 def _configure_token_limits(params: Dict[str, Any], model_name: str, max_tokens: Optional[int]) -> None:
@@ -197,8 +265,114 @@ def _configure_thinking(params: Dict[str, Any], model_name: str, enable_thinking
         logger.info(f"xAI thinking enabled with reasoning_effort='{effort_level}'")
 
 def _add_fallback_model(params: Dict[str, Any], model_name: str, messages: List[Dict[str, Any]]) -> None:
-    """No-op: fallbacks are disabled."""
-    return
+    """Add fallback models to parameters for retry logic."""
+    fallback_models = get_openrouter_fallback(model_name)
+    if fallback_models:
+        params["fallbacks"] = [fallback_models]
+        logger.debug(f"Added fallback model {fallback_models} for {model_name}")
+
+def _classify_error(error: Exception) -> LLMError:
+    """Classify LiteLLM errors into specific error types."""
+    error_str = str(error).lower()
+    
+    if isinstance(error, LiteLLMTimeout) or "timeout" in error_str:
+        return LLMTimeoutError(f"Request timeout: {error}")
+    elif isinstance(error, LiteLLMRateLimit) or "rate limit" in error_str:
+        return LLMRateLimitError(f"Rate limit exceeded: {error}")
+    elif isinstance(error, LiteLLMAuth) or "authentication" in error_str or "unauthorized" in error_str:
+        return LLMAuthenticationError(f"Authentication failed: {error}")
+    elif isinstance(error, LiteLLMServiceUnavailable) or "service unavailable" in error_str:
+        return LLMServiceUnavailableError(f"Service unavailable: {error}")
+    elif "quota" in error_str or "billing" in error_str:
+        return LLMQuotaExceededError(f"Quota exceeded: {error}")
+    else:
+        return LLMError(f"LLM API error: {error}")
+
+def _is_circuit_breaker_open(model_name: str) -> bool:
+    """Check if circuit breaker is open for a model."""
+    if model_name not in circuit_breaker_state:
+        return False
+    
+    state = circuit_breaker_state[model_name]
+    if state["status"] == "open":
+        # Check if timeout has passed
+        if time.time() - state["last_failure"] > CIRCUIT_BREAKER_TIMEOUT:
+            # Reset circuit breaker
+            circuit_breaker_state[model_name] = {
+                "status": "closed",
+                "failure_count": 0,
+                "last_failure": 0
+            }
+            logger.info(f"🔄 Circuit breaker reset for {model_name}")
+            return False
+        return True
+    return False
+
+def _record_failure(model_name: str):
+    """Record a failure for circuit breaker."""
+    if model_name not in circuit_breaker_state:
+        circuit_breaker_state[model_name] = {
+            "status": "closed",
+            "failure_count": 0,
+            "last_failure": 0
+        }
+    
+    state = circuit_breaker_state[model_name]
+    state["failure_count"] += 1
+    state["last_failure"] = time.time()
+    
+    if state["failure_count"] >= CIRCUIT_BREAKER_THRESHOLD:
+        state["status"] = "open"
+        logger.warning(f"🚨 Circuit breaker opened for {model_name} after {state['failure_count']} failures")
+
+def _record_success(model_name: str):
+    """Record a success for circuit breaker."""
+    if model_name in circuit_breaker_state:
+        circuit_breaker_state[model_name] = {
+            "status": "closed",
+            "failure_count": 0,
+            "last_failure": 0
+        }
+
+async def _health_check_model(model_name: str) -> bool:
+    """Perform a health check on a model."""
+    try:
+        # Simple health check with minimal request
+        test_messages = [{"role": "user", "content": "Hello"}]
+        test_params = {
+            "model": model_name,
+            "messages": test_messages,
+            "max_tokens": 1,
+            "temperature": 0,
+            "timeout": 10  # Short timeout for health check
+        }
+        
+        response = await provider_router.acompletion(**test_params)
+        model_health_status[model_name] = "healthy"
+        last_health_check[model_name] = time.time()
+        return True
+    except Exception as e:
+        logger.warning(f"Health check failed for {model_name}: {e}")
+        model_health_status[model_name] = "unhealthy"
+        last_health_check[model_name] = time.time()
+        return False
+
+def _should_skip_model(model_name: str) -> bool:
+    """Check if model should be skipped due to health or circuit breaker."""
+    # Check circuit breaker
+    if _is_circuit_breaker_open(model_name):
+        return True
+    
+    # Check health status
+    if model_name in model_health_status:
+        if model_health_status[model_name] == "unhealthy":
+            # Check if enough time has passed to retry health check
+            if model_name in last_health_check:
+                if time.time() - last_health_check[model_name] > HEALTH_CHECK_INTERVAL:
+                    return False  # Allow retry
+            return True
+    
+    return False
 
 def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any]]], tool_choice: str) -> None:
     """Add tools configuration to parameters."""
@@ -238,7 +412,7 @@ def prepare_params(
         "response_format": response_format,
         "top_p": top_p,
         "stream": stream,
-        "num_retries": MAX_RETRIES,
+        "num_retries": MAX_RETRIES + PRIMARY_MODEL_RETRIES,  # Total retries including primary model retries
     }
 
     if api_key:
@@ -278,6 +452,101 @@ def prepare_params(
     _configure_thinking(params, resolved_model_name, enable_thinking, reasoning_effort)
 
     return params
+
+async def make_llm_api_call_with_fallback(
+    messages: List[Dict[str, Any]],
+    model_name: str,
+    response_format: Optional[Any] = None,
+    temperature: float = 0,
+    max_tokens: Optional[int] = None,
+    tools: Optional[List[Dict[str, Any]]] = None,
+    tool_choice: str = "auto",
+    api_key: Optional[str] = None,
+    api_base: Optional[str] = None,
+    stream: bool = False,
+    top_p: Optional[float] = None,
+    model_id: Optional[str] = None,
+    enable_thinking: Optional[bool] = False,
+    reasoning_effort: Optional[str] = "low",
+) -> Union[Dict[str, Any], AsyncGenerator, ModelResponse]:
+    """
+    Make an LLM API call with comprehensive fallback and error handling.
+    
+    This function implements a robust fallback chain:
+    1. Primary model (Gemini 2.5 Flash) with retries
+    2. Fallback to GPT-5 Mini
+    3. Fallback to GPT-5
+    4. Final fallback to Gemini 2.5 Flash
+    
+    Includes circuit breaker, health checks, and graceful degradation.
+    """
+    from core.ai_models import model_manager
+    resolved_model_name = model_manager.resolve_model_id(model_name)
+    
+    # Define fallback chain
+    fallback_chain = [
+        resolved_model_name,
+        "openai/gpt-5-mini",
+        "openai/gpt-5",
+        "gemini/gemini-2.5-flash"
+    ]
+    
+    last_error = None
+    
+    for i, current_model in enumerate(fallback_chain):
+        try:
+            logger.info(f"🔄 Attempting model {i+1}/{len(fallback_chain)}: {current_model}")
+            
+            # Skip if model is unhealthy or circuit breaker is open
+            if _should_skip_model(current_model):
+                logger.warning(f"⚠️ Skipping {current_model} due to health/circuit breaker status")
+                continue
+            
+            # Make the API call
+            response = await make_llm_api_call(
+                messages=messages,
+                model_name=current_model,
+                response_format=response_format,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                tools=tools,
+                tool_choice=tool_choice,
+                api_key=api_key,
+                api_base=api_base,
+                stream=stream,
+                top_p=top_p,
+                model_id=model_id,
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+            )
+            
+            # Success - record and return
+            _record_success(current_model)
+            logger.info(f"✅ Successfully completed request with {current_model}")
+            return response
+            
+        except (LLMTimeoutError, LLMRateLimitError, LLMServiceUnavailableError) as e:
+            # These errors should trigger fallback
+            last_error = e
+            logger.warning(f"⚠️ {current_model} failed with {type(e).__name__}: {e}")
+            continue
+            
+        except (LLMAuthenticationError, LLMQuotaExceededError) as e:
+            # These errors should not trigger fallback (likely account issues)
+            logger.error(f"🚨 Critical error with {current_model}: {e}")
+            raise e
+            
+        except Exception as e:
+            # Unexpected errors
+            last_error = e
+            logger.error(f"❌ Unexpected error with {current_model}: {e}")
+            continue
+    
+    # All models failed
+    if last_error:
+        raise LLMRetryError(f"All models in fallback chain failed. Last error: {last_error}")
+    else:
+        raise LLMRetryError("All models in fallback chain failed with no specific error")
 
 async def make_llm_api_call(
     messages: List[Dict[str, Any]],
@@ -323,7 +592,7 @@ async def make_llm_api_call(
     """
     # debug <timestamp>.json messages
     logger.debug(f"Making LLM API call to model: {model_name} (Thinking: {enable_thinking}, Effort: {reasoning_effort})")
-    logger.debug(f"📡 API Call: Using model {model_name}")
+    logger.info(f"📡 API Call: Using primary model {model_name} with fallback chain: GPT-5 Mini → GPT-5 → Gemini 2.5 Flash")
 
     logger.info(f"📥 Received {len(messages)} messages for LLM call")
     for i, msg in enumerate(messages):
@@ -367,8 +636,26 @@ async def make_llm_api_call(
     if 'extra_headers' in params:
         logger.info(f"📮 Headers to LiteLLM: {params['extra_headers']}")
     
+    # Check if model should be skipped
+    if _should_skip_model(resolved_model_name):
+        logger.warning(f"⚠️ Skipping {resolved_model_name} due to circuit breaker or health status")
+        # Try fallback immediately
+        fallback_model = get_openrouter_fallback(resolved_model_name)
+        if fallback_model:
+            logger.info(f"🔄 Attempting immediate fallback to {fallback_model}")
+            params["model"] = fallback_model
+        else:
+            raise LLMServiceUnavailableError(f"Model {resolved_model_name} is unavailable and no fallback configured")
+
     try:
-        response = await provider_router.acompletion(**params)
+        # Add timeout to prevent hanging requests
+        response = await asyncio.wait_for(
+            provider_router.acompletion(**params),
+            timeout=REQUEST_TIMEOUT
+        )
+        
+        # Record success for circuit breaker
+        _record_success(resolved_model_name)
         logger.debug(f"Successfully received API response from {model_name}")
         
         # Check if streaming
@@ -389,9 +676,22 @@ async def make_llm_api_call(
         
         return response
 
+    except asyncio.TimeoutError:
+        error_msg = f"Request timeout after {REQUEST_TIMEOUT}s for {model_name}"
+        logger.error(error_msg)
+        _record_failure(resolved_model_name)
+        raise LLMTimeoutError(error_msg)
+    
     except Exception as e:
-        logger.error(f"Unexpected error during API call: {str(e)}", exc_info=True)
-        raise LLMError(f"API call failed: {str(e)}")
+        # Classify and record the error
+        classified_error = _classify_error(e)
+        _record_failure(resolved_model_name)
+        
+        logger.error(f"Primary model {model_name} failed: {str(e)}")
+        logger.info(f"🔄 Fallback mechanism will be triggered by LiteLLM Router")
+        
+        # Re-raise the classified error
+        raise classified_error
 
 setup_api_keys()
 setup_provider_router()

@@ -969,3 +969,17 @@
     }
   }
 }
+
+/* Enhanced breathing animation for loading indicators */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.2);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  }
+}

@@ -249,7 +249,7 @@ const HeroSection: React.FC<HeroProps> = ({
   };
 
   return (
-    <section id="hero" className="relative min-h-[92vh] w-full overflow-hidden pt-[140px] text-white">
+    <section id="hero" className="relative min-h-[100vh] w-full overflow-hidden pt-[80px] sm:pt-[140px] text-white">
       {/* very soft local halo to keep hero focus without duplicating the global spotlight */}
       <div
         aria-hidden
@@ -262,7 +262,7 @@ const HeroSection: React.FC<HeroProps> = ({
       />
 
       {/* Content container */}
-      <div className="relative mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 py-24">
+      <div className="relative mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-4 sm:px-6 py-12 sm:py-24">
         {/* Eyebrow */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -278,7 +278,7 @@ const HeroSection: React.FC<HeroProps> = ({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-center text-7xl font-semibold tracking-tight text-transparent md:text-8xl"
+          className="bg-gradient-to-b from-white to-white/70 bg-clip-text text-center text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold tracking-tight text-transparent"
         >
           {title}
         </motion.h1>
@@ -288,14 +288,14 @@ const HeroSection: React.FC<HeroProps> = ({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.25 }}
-          className="mt-4 max-w-2xl text-balance text-center text-lg text-white/70"
+          className="mt-4 max-w-2xl text-balance text-center text-base sm:text-lg text-white/70 px-4"
         >
           {subhead}
         </motion.p>
 
         {/* Card stack */}
-        <div className="relative mt-12 w-full max-w-6xl">
-          {/* Left placeholder card */}
+        <div className="relative mt-8 sm:mt-12 w-full max-w-6xl">
+          {/* Left placeholder card - hidden on mobile */}
           <motion.div
             initial={{ opacity: 0, x: -40, rotate: -6 }}
             animate={{ opacity: 1, x: 0, rotate: -6 }}
@@ -306,7 +306,7 @@ const HeroSection: React.FC<HeroProps> = ({
               zIndex: 50,
               transition: { duration: 0.4, ease: "easeOut" }
             }}
-            className="absolute left-[-4%] top-8 hidden w-[42%] -rotate-6 p-6 md:block pointer-events-auto cursor-pointer group"
+            className="absolute left-[-4%] top-8 hidden w-[42%] -rotate-6 p-6 lg:block pointer-events-auto cursor-pointer group"
           >
             <GlassCard className="transition-all duration-400 group-hover:shadow-[0_20px_60px_-8px_rgba(0,0,0,0.8)] group-hover:ring-1 group-hover:ring-blue-400/20 group-hover:opacity-95">
               <div className="p-6">
@@ -319,7 +319,7 @@ const HeroSection: React.FC<HeroProps> = ({
             </GlassCard>
           </motion.div>
 
-          {/* Right placeholder card */}
+          {/* Right placeholder card - hidden on mobile */}
           <motion.div
             initial={{ opacity: 0, x: 40, rotate: 6 }}
             animate={{ opacity: 1, x: 0, rotate: 6 }}
@@ -330,7 +330,7 @@ const HeroSection: React.FC<HeroProps> = ({
               zIndex: 50,
               transition: { duration: 0.4, ease: "easeOut" }
             }}
-            className="absolute right-[-4%] top-8 hidden w-[42%] rotate-6 p-6 md:block pointer-events-auto cursor-pointer group"
+            className="absolute right-[-4%] top-8 hidden w-[42%] rotate-6 p-6 lg:block pointer-events-auto cursor-pointer group"
           >
             <GlassCard className="transition-all duration-400 group-hover:shadow-[0_20px_60px_-8px_rgba(0,0,0,0.8)] group-hover:ring-1 group-hover:ring-green-400/20 group-hover:opacity-95">
               <div className="p-6">
@@ -348,10 +348,10 @@ const HeroSection: React.FC<HeroProps> = ({
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.45 }}
-            className="relative z-10 mx-auto w-[92%] p-0 md:w-[58%]"
+            className="relative z-10 mx-auto w-[95%] sm:w-[92%] md:w-[70%] lg:w-[58%] p-0"
           >
             <GlassCard>
-              <div className="p-6 md:p-7">
+              <div className="p-4 sm:p-6 md:p-7">
                 <header className="mb-4 flex items-center gap-2">
                   <div className="h-6 w-6 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
                     <img 

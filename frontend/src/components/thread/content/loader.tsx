@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
 
 const items = [
-    { id: 1, content: "Initializing neural pathways..." },
+    { id: 1, content: "Initializing neural networks..." },
     { id: 2, content: "Analyzing query complexity..." },
-    { id: 3, content: "Assembling cognitive framework..." },
+    { id: 3, content: "Understanding your vision" },
     { id: 4, content: "Orchestrating thought processes..." },
     { id: 5, content: "Synthesizing contextual understanding..." },
     { id: 6, content: "Calibrating response parameters..." },
@@ -36,9 +36,11 @@ export const AgentLoader = () => {
   return (
     <div className="flex py-2 items-center w-full gap-3">
       <div className="flex items-center gap-1">
-        <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000" />
-        <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-150" />
-        <div className="h-1 w-1 rounded-full bg-primary/40 animate-pulse duration-1000 delay-300" />
+        <div className="h-3 w-3 rounded-full bg-primary/40" 
+             style={{
+               animation: 'breathe 3s ease-in-out infinite',
+               animationDelay: '0s'
+             }} />
       </div>
       <div className="relative flex-1 h-7">
         <AnimatePresence mode="wait">

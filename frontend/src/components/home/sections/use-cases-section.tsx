@@ -173,7 +173,7 @@ export function UseCasesSection() {
 
       {/* Category chips */}
       {categories.length > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-2 px-6">
+        <div className="flex flex-wrap items-center justify-center gap-2 px-4 sm:px-6">
           {categories.map((cat) => (
             <Chip
               key={cat}
@@ -199,7 +199,7 @@ export function UseCasesSection() {
               transition: { staggerChildren: 0.06, duration: 0.35, ease: "easeOut" },
             },
           }}
-          className="grid min-[650px]:grid-cols-2 min-[1000px]:grid-cols-3 min-[1320px]:grid-cols-4 gap-5 w-full max-w-6xl mx-auto px-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 w-full max-w-6xl mx-auto px-4 sm:px-6"
         >
           {filtered.map((useCase) => (
             <motion.div
@@ -215,7 +215,7 @@ export function UseCasesSection() {
                 "hover:translate-y-[-2px]"
               )}>
                 {/* Header */}
-                <div className="p-5 flex flex-col gap-3">
+                <div className="p-4 sm:p-5 flex flex-col gap-3">
                   <div className="flex items-center gap-3">
                     <div className="rounded-full bg-white/8 ring-1 ring-white/15 p-2">
                       <svg
@@ -229,12 +229,12 @@ export function UseCasesSection() {
                         {useCase.icon}
                       </svg>
                     </div>
-                    <h3 className="text-base md:text-lg font-medium line-clamp-1 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
+                    <h3 className="text-sm sm:text-base md:text-lg font-medium line-clamp-1 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
                       {useCase.title}
                     </h3>
                   </div>
 
-                  <p className="text-sm text-white/70 leading-relaxed line-clamp-3">
+                  <p className="text-xs sm:text-sm text-white/70 leading-relaxed line-clamp-3">
                     {useCase.description}
                   </p>
                 </div>

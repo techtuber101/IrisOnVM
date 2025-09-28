@@ -66,7 +66,7 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        // CENTERED, FLOATING “PILL” CONTAINER
+        // CENTERED, FLOATING "PILL" CONTAINER
         "fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300"
       )}
       // ensure the centered container doesn't get clipped on tiny screens
@@ -78,6 +78,11 @@ export function Navbar() {
         initial={{ width: INITIAL_WIDTH }}
         animate={{ width: hasScrolled ? MAX_WIDTH : INITIAL_WIDTH }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+        style={{ 
+          width: typeof window !== 'undefined' && window.innerWidth < 768 
+            ? 'calc(100vw - 1rem)' 
+            : undefined 
+        }}
       >
         <div
           className={cn(
@@ -87,21 +92,28 @@ export function Navbar() {
               // scrolled: glassy pill
               ? "border border-border bg-background/70 backdrop-blur-md shadow-lg px-2"
               // top: totally transparent — no bg, no border, no blur, no shadow
-              : "border-transparent bg-transparent backdrop-blur-0 shadow-none px-7"
+              : "border-transparent bg-transparent backdrop-blur-0 shadow-none px-1 md:px-7"
           )}
         >
-          <div className="flex h-[56px] items-center justify-between px-4 md:px-6">
-            {/* Left: Logo */}
-            <Link href="/" className="flex items-center gap-3">
-              <Image src={logoSrc} alt="Iris Logo" width={140} height={22} priority />
-            </Link>
+          <div className="flex h-[56px] items-center justify-between px-1 md:px-6">
+            {/* Desktop Layout */}
+            <div className="hidden md:flex items-center justify-between w-full">
+              {/* Left: Logo */}
+              <Link href="/" className="flex items-center gap-3">
+                <Image 
+                  src={logoSrc} 
+                  alt="Iris Logo" 
+                  width={140} 
+                  height={22} 
+                  priority 
+                />
+              </Link>
 
-            {/* Center: Menu */}
-            <NavMenu />
+              {/* Center: Menu */}
+              <NavMenu />
 
-            {/* Right: Actions */}
-            <div className="flex flex-row items-center gap-1 md:gap-3 shrink-0">
-              <div className="hidden md:flex items-center space-x-3">
+              {/* Right: Actions */}
+              <div className="flex items-center space-x-3">
                 {user ? (
                   <Link
                     className="group relative inline-flex"
@@ -151,7 +163,7 @@ export function Navbar() {
                       {/* Subtle glow pulse */}
                       <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
                       {/* Button content */}
-                      <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center gap-2">
+                      <span className="relative z-10 text-white font-normal text-sm h-8 px-5 rounded-full inline-flex items-center gap-2 whitespace-nowrap">
                         Dashboard
                       </span>
                     </motion.div>
@@ -205,18 +217,36 @@ export function Navbar() {
                       {/* Subtle glow pulse */}
                       <div className="pointer-events-none absolute inset-0 rounded-full bg-white/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
                       {/* Button content */}
-                      <span className="relative z-10 text-white font-normal text-sm h-8 px-4 rounded-full inline-flex items-center gap-2">
+                      <span className="relative z-10 text-white font-normal text-sm h-8 px-5 rounded-full inline-flex items-center gap-2 whitespace-nowrap">
                         Get Started
                       </span>
                     </motion.div>
                   </Link>
                 )}
               </div>
+            </div>
+
+            {/* Mobile Layout */}
+            <div className="flex md:hidden items-center justify-between w-full min-w-0">
+              {/* Left: Logo */}
+              <Link href="/" className="flex items-center gap-1 flex-shrink-0">
+                <Image 
+                  src={logoSrc} 
+                  alt="Iris Logo" 
+                  width={100} 
+                  height={16} 
+                  priority 
+                  className="w-auto h-4"
+                />
+              </Link>
+
+              {/* Right: Menu Button - Always visible */}
               <button
-                className="md:hidden border border-border size-8 rounded-md cursor-pointer flex items-center justify-center"
+                className="border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl size-10 rounded-full cursor-pointer flex items-center justify-center hover:bg-white/10 transition-all duration-200 z-50 flex-shrink-0"
                 onClick={toggleDrawer}
+                aria-label="Open menu"
               >
-                {isDrawerOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                {isDrawerOpen ? <X className="size-5 text-white" /> : <Menu className="size-5 text-white" />}
               </button>
             </div>
           </div>
@@ -237,27 +267,77 @@ export function Navbar() {
               onClick={handleOverlayClick}
             />
             <motion.div
-              className="fixed inset-x-0 w-[95%] mx-auto bottom-3 bg-background border border-border p-4 rounded-xl shadow-lg"
+              className="fixed inset-x-0 w-[95%] mx-auto bottom-3 relative rounded-3xl border border-white/10 bg-[rgba(10,14,22,0.55)] backdrop-blur-2xl shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] overflow-hidden p-4"
               initial="hidden"
               animate="visible"
               exit="exit"
               variants={drawerVariants}
             >
-              <div className="flex flex-col gap-4">
+              {/* Gradient rim */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-3xl"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(173,216,255,0.18), rgba(255,255,255,0.04) 30%, rgba(150,160,255,0.14) 85%, rgba(255,255,255,0.06))",
+                  WebkitMask: "linear-gradient(#000,#000) content-box, linear-gradient(#000,#000)",
+                  WebkitMaskComposite: "xor" as any,
+                  maskComposite: "exclude",
+                  padding: 1,
+                  borderRadius: 24,
+                }}
+              />
+              {/* Specular streak */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-24"
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.06) 45%, rgba(255,255,255,0) 100%)",
+                  filter: "blur(6px)",
+                  mixBlendMode: "screen",
+                }}
+              />
+              {/* Fine noise */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    "url('data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'60\' height=\'60\'><filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'4\'/><feColorMatrix type=\'saturate\' values=\'0\'/><feComponentTransfer><feFuncA type=\'table\' tableValues=\'0 0.03\'/></feComponentTransfer></filter><rect width=\'100%\' height=\'100%\' filter=\'url(%23n)\' /></svg>')",
+                  backgroundSize: "100px 100px",
+                  mixBlendMode: "overlay",
+                }}
+              />
+              <div className="relative z-10 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <Link href="/" className="flex items-center gap-3">
-                    <Image src={logoSrc} alt="Iris Logo" width={120} height={22} priority />
-                    <span className="font-medium text-primary text-sm">Iris</span>
+                    <Image 
+                      src={logoSrc} 
+                      alt="Iris Logo" 
+                      width={120} 
+                      height={22} 
+                      priority 
+                      className="w-auto h-5"
+                    />
+                    <span className="font-medium text-white text-sm">Iris</span>
                   </Link>
-                  <button onClick={toggleDrawer} className="border border-border rounded-md p-1 cursor-pointer">
-                    <X className="size-5" />
+                  <button 
+                    onClick={toggleDrawer} 
+                    className="border border-white/10 bg-white/5 rounded-full p-2 cursor-pointer hover:bg-white/10 transition-all duration-200"
+                  >
+                    <X className="size-4 text-white" />
                   </button>
                 </div>
 
-                <motion.ul className="flex flex-col text-sm mb-4 border border-border rounded-md" variants={drawerMenuContainerVariants}>
+                <motion.ul className="flex flex-col text-sm mb-4 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm" variants={drawerMenuContainerVariants}>
                   <AnimatePresence>
                     {siteConfig.nav.links.map((item) => (
-                      <motion.li key={item.id} className="p-2.5 border-b border-border last:border-b-0" variants={drawerMenuVariants}>
+                      <motion.li 
+                        key={item.id} 
+                        className="p-3 border-b border-white/10 last:border-b-0 hover:bg-white/5 transition-colors duration-200" 
+                        variants={drawerMenuVariants}
+                      >
                         <a
                           href={item.href}
                           onClick={(e) => {
@@ -267,8 +347,10 @@ export function Navbar() {
                             setIsDrawerOpen(false);
                           }}
                           className={cn(
-                            "underline-offset-4 hover:text-primary/80 transition-colors",
-                            activeSection === item.href.substring(1) ? "text-primary font-medium" : "text-primary/60"
+                            "block text-sm font-medium transition-colors duration-200",
+                            activeSection === item.href.substring(1) 
+                              ? "text-white" 
+                              : "text-white/70 hover:text-white"
                           )}
                         >
                           {item.name}
