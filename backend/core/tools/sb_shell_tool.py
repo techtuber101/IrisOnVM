@@ -65,8 +65,8 @@ class SandboxShellTool(SandboxToolsBase):
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "Optional timeout in seconds for blocking commands. Defaults to 60. Ignored for non-blocking commands.",
-                        "default": 60
+                        "description": "Optional timeout in seconds for blocking commands. Defaults to 300 (5 minutes). Ignored for non-blocking commands. Use longer timeouts for database operations.",
+                        "default": 300
                     }
                 },
                 "required": ["command"]
@@ -105,7 +105,7 @@ class SandboxShellTool(SandboxToolsBase):
         folder: Optional[str] = None,
         session_name: Optional[str] = None,
         blocking: bool = False,
-        timeout: int = 60
+        timeout: int = 300
     ) -> ToolResult:
         try:
             # Ensure sandbox is initialized

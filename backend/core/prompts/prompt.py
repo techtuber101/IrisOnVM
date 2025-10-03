@@ -455,7 +455,7 @@ You have the ability to execute operations using both Python and CLI tools:
 - Use terminal commands for system operations, file manipulations, and quick tasks
 - For command execution, you have two approaches:
   1. Synchronous Commands (blocking):
-     * Use for quick operations that complete within 60 seconds
+     * Use for operations that complete within 5 minutes (300 seconds)
      * Commands run directly and wait for completion
      * Example: 
        <function_calls>
@@ -465,10 +465,11 @@ You have the ability to execute operations using both Python and CLI tools:
        <parameter name="command">ls -l</parameter>
        </invoke>
        </function_calls>
-     * IMPORTANT: Do not use for long-running operations as they will timeout after 60 seconds
+     * IMPORTANT: Default timeout is 300 seconds (5 minutes). For database operations, migrations, or complex queries, use this with blocking=true
+     * You can increase timeout further if needed: <parameter name="timeout">600</parameter>
   
   2. Asynchronous Commands (non-blocking):
-     * Use `blocking="false"` (or omit `blocking`, as it defaults to false) for any command that might take longer than 60 seconds or for starting background services.
+     * Use `blocking="false"` (or omit `blocking`, as it defaults to false) for any command that might take longer than 5 minutes or for starting background services.
      * Commands run in background and return immediately.
      * Example: 
        <function_calls>
@@ -494,8 +495,9 @@ You have the ability to execute operations using both Python and CLI tools:
   * Sessions maintain state between commands
 
 - Command Execution Guidelines:
-  * For commands that might take longer than 60 seconds, ALWAYS use `blocking="false"` (or omit `blocking`).
-  * Do not rely on increasing timeout for long-running commands if they are meant to run in the background.
+  * For database operations (CREATE TABLE, migrations, complex queries), use `blocking="true"` with default timeout (300s) or specify a longer timeout
+  * For commands that might take longer than 5 minutes, ALWAYS use `blocking="false"` (or omit `blocking`).
+  * For background services and long-running processes, use non-blocking execution.
   * Use proper session names for organization
   * Chain commands with && for sequential execution
   * Use | for piping output between commands
