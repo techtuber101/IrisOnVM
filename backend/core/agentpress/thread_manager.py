@@ -10,6 +10,7 @@ This module provides comprehensive conversation management, including:
 - Context summarization to manage token limits
 """
 
+import asyncio
 import json
 from typing import List, Dict, Any, Optional, Type, Union, AsyncGenerator, Literal, cast, Callable
 from core.services.llm import make_llm_api_call, LLMServiceUnavailableError

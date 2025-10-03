@@ -57,3 +57,4 @@ async def root():
 if __name__ == '__main__':
     print(f"Starting simple workspace server on port 8080, serving files from: {workspace_dir}")
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
