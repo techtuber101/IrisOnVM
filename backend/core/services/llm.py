@@ -36,7 +36,7 @@ litellm.drop_params = True
 # Constants
 MAX_RETRIES = 3
 PRIMARY_MODEL_RETRIES = 1  # Additional retries for primary model before fallback (reduced from 2 to 1 for faster fallback)
-REQUEST_TIMEOUT = 120  # Request timeout in seconds (increased from 60 to 120)
+REQUEST_TIMEOUT = 90  # Request timeout in seconds (reduced from 120 for faster fallback - Gemini Flash is fast)
 CIRCUIT_BREAKER_THRESHOLD = 3  # Number of failures before circuit opens (reduced from 5 to 3 for faster fallback)
 CIRCUIT_BREAKER_TIMEOUT = 300  # Circuit breaker timeout in seconds
 HEALTH_CHECK_INTERVAL = 60  # Health check interval in seconds

@@ -1,5 +1,14 @@
 import os
-import json
+try:
+    import orjson as json_module
+    # orjson is 2-3x faster than stdlib json for parsing and serialization
+    json_loads = lambda s: json_module.loads(s) if isinstance(s, (bytes, bytearray, memoryview, str)) else s
+    json_dumps = lambda obj: json_module.dumps(obj).decode('utf-8')
+except ImportError:
+    import json as json_module
+    json_loads = json_module.loads
+    json_dumps = json_module.dumps
+import json  # Keep for compatibility
 import asyncio
 import datetime
 from typing import Optional, Dict, List, Any, AsyncGenerator
@@ -133,36 +142,36 @@ class ToolManager:
             logger.debug("Registered data_providers_tool")
     
     def _register_agent_builder_tools(self, agent_id: str, disabled_tools: List[str]):
-        """Register agent builder tools."""
-        from core.tools.agent_builder_tools.agent_config_tool import AgentConfigTool
-        from core.tools.agent_builder_tools.mcp_search_tool import MCPSearchTool
-        from core.tools.agent_builder_tools.credential_profile_tool import CredentialProfileTool
-        from core.tools.agent_builder_tools.workflow_tool import WorkflowTool
-        from core.tools.agent_builder_tools.trigger_tool import TriggerTool
+        """Register agent builder tools with lazy imports for better performance."""
+        # Lazy import mapping - only import what's needed
+        tool_imports = {
+            'agent_config_tool': 'core.tools.agent_builder_tools.agent_config_tool.AgentConfigTool',
+            'mcp_search_tool': 'core.tools.agent_builder_tools.mcp_search_tool.MCPSearchTool',
+            'credential_profile_tool': 'core.tools.agent_builder_tools.credential_profile_tool.CredentialProfileTool',
+            'workflow_tool': 'core.tools.agent_builder_tools.workflow_tool.WorkflowTool',
+            'trigger_tool': 'core.tools.agent_builder_tools.trigger_tool.TriggerTool',
+        }
+        
         from core.services.supabase import DBConnection
-        
         db = DBConnection()
-        
-        agent_builder_tools = [
-            ('agent_config_tool', AgentConfigTool),
-            ('mcp_search_tool', MCPSearchTool),
-            ('credential_profile_tool', CredentialProfileTool),
-            ('workflow_tool', WorkflowTool),
-            ('trigger_tool', TriggerTool),
-        ]
         
         logger.debug(f"Registering agent builder tools for agent_id: {agent_id}")
         logger.debug(f"Disabled tools list: {disabled_tools}")
         
-        for tool_name, tool_class in agent_builder_tools:
+        for tool_name, import_path in tool_imports.items():
             if tool_name not in disabled_tools:
                 try:
+                    # Lazy import - only import if tool is enabled
+                    module_path, class_name = import_path.rsplit('.', 1)
+                    module = __import__(module_path, fromlist=[class_name])
+                    tool_class = getattr(module, class_name)
+                    
                     self.thread_manager.add_tool(tool_class, thread_manager=self.thread_manager, db_connection=db, agent_id=agent_id)
                     logger.debug(f"✅ Registered {tool_name}")
                 except Exception as e:
                     logger.warning(f"❌ Failed to register {tool_name}: {e}")
             else:
-                logger.debug(f"⏭️ Skipping {tool_name} - disabled")
+                logger.debug(f"⏭️ Skipping {tool_name} - disabled (not imported)")
     
     def _register_suna_specific_tools(self, disabled_tools: List[str]):
         """Register tools specific to Suna (the default agent)."""
@@ -278,6 +287,27 @@ class PromptManager:
                                   mcp_wrapper_instance: Optional[MCPToolWrapper],
                                   client=None, user_first_name: Optional[str] = None) -> dict:
         
+        # Generate cache key based on agent config, model, and user
+        # NOTE: model_name is the resolved model ID (e.g., "gemini/gemini-2.5-flash")
+        # Each model gets its own cache entry with model-specific formatting
+        # If fallback occurs (Gemini->GPT-5), the new model will create its own cache
+        # This ensures: 1) Model-specific cache formatting, 2) Fast cache hits per model
+        agent_id = agent_config.get('agent_id') if agent_config else 'default'
+        agent_version_id = agent_config.get('current_version_id') if agent_config else 'none'
+        cache_key = f"system_prompt:{agent_id}:{agent_version_id}:{model_name}:{user_first_name or 'anon'}"
+        
+        # Try to get from cache first (IMPORTANT: Only caches system prompt, NOT conversation messages)
+        try:
+            from core.services import redis
+            cached_prompt = await redis.get(cache_key)
+            if cached_prompt:
+                # Use faster orjson if available
+                cached_data = json_loads(cached_prompt.decode() if isinstance(cached_prompt, bytes) else cached_prompt)
+                logger.debug(f"✅ Using cached system prompt for agent {agent_id} (saved DB query)")
+                return cached_data
+        except Exception as e:
+            logger.debug(f"Cache miss or error for system prompt: {e}")
+        
         default_system_content = get_system_prompt()
         
         # Add personalized greeting with user's first name if available
@@ -310,19 +340,33 @@ class PromptManager:
                 builder_prompt = get_agent_builder_prompt()
                 system_content += f"\n\n{builder_prompt}"
         
-        # Add agent knowledge base context if available
+        # Add agent knowledge base context if available (with Redis cache)
         if agent_config and client and 'agent_id' in agent_config:
             try:
-                logger.debug(f"Retrieving agent knowledge base context for agent {agent_config['agent_id']}")
+                # Try to get knowledge base from cache first
+                kb_cache_key = f"kb:{agent_config['agent_id']}"
+                kb_cached = await redis.get(kb_cache_key)
                 
-                # Use only agent-based knowledge base context
-                kb_result = await client.rpc('get_agent_knowledge_base_context', {
-                    'p_agent_id': agent_config['agent_id']
-                }).execute()
+                if kb_cached:
+                    kb_data = kb_cached.decode() if isinstance(kb_cached, bytes) else kb_cached
+                    logger.debug(f"✅ Using cached knowledge base for agent {agent_config['agent_id']} (saved DB query)")
+                else:
+                    logger.debug(f"Retrieving agent knowledge base context for agent {agent_config['agent_id']}")
+                    
+                    # Use only agent-based knowledge base context
+                    kb_result = await client.rpc('get_agent_knowledge_base_context', {
+                        'p_agent_id': agent_config['agent_id']
+                    }).execute()
+                    
+                    kb_data = kb_result.data if kb_result.data else ""
+                    
+                    # Cache knowledge base for 5 minutes (300 seconds)
+                    if kb_data:
+                        await redis.set(kb_cache_key, kb_data, ex=300)
+                        logger.debug(f"📦 Cached knowledge base for agent {agent_config['agent_id']}")
                 
-                if kb_result.data and kb_result.data.strip():
-                    logger.debug(f"Found agent knowledge base context, adding to system prompt (length: {len(kb_result.data)} chars)")
-                    # logger.debug(f"Knowledge base data object: {kb_result.data[:500]}..." if len(kb_result.data) > 500 else f"Knowledge base data object: {kb_result.data}")
+                if kb_data and kb_data.strip():
+                    logger.debug(f"Found agent knowledge base context, adding to system prompt (length: {len(kb_data)} chars)")
                     
                     # Construct a well-formatted knowledge base section
                     kb_section = f"""
@@ -330,7 +374,7 @@ class PromptManager:
                     === AGENT KNOWLEDGE BASE ===
                     NOTICE: The following is your specialized knowledge base. This information should be considered authoritative for your responses and should take precedence over general knowledge when relevant.
 
-                    {kb_result.data}
+                    {kb_data}
 
                     === END AGENT KNOWLEDGE BASE ===
 
@@ -400,7 +444,18 @@ class PromptManager:
         system_content += datetime_info
 
         system_message = {"role": "system", "content": system_content}
-        return format_message_with_cache(system_message, model_name)
+        formatted_message = format_message_with_cache(system_message, model_name)
+        
+        # Cache the final system message for 5 minutes (300 seconds)
+        # This includes MCP info and datetime which change less frequently
+        try:
+            # Use faster orjson for serialization
+            await redis.set(cache_key, json_dumps(formatted_message), ex=300)
+            logger.debug(f"📦 Cached system prompt for agent {agent_id}")
+        except Exception as e:
+            logger.debug(f"Failed to cache system prompt: {e}")
+        
+        return formatted_message
 
 
 class MessageManager:
@@ -567,44 +622,62 @@ class AgentRunner:
         return await mcp_manager.register_mcp_tools(self.config.agent_config)
     
     async def _get_user_first_name(self) -> Optional[str]:
-        """Get the user's first name from their profile for personalized responses."""
+        """Get the user's first name from their profile for personalized responses (with Redis cache)."""
         try:
+            # Try cache first
+            from core.services import redis
+            cache_key = f"user_first_name:{self.account_id}"
+            cached_name = await redis.get(cache_key)
+            
+            if cached_name:
+                name = cached_name.decode() if isinstance(cached_name, bytes) else cached_name
+                logger.debug(f"✅ Using cached first name for user {self.account_id}")
+                return name if name != "None" else None
+            
             # Get the primary owner user ID from the account
             account_response = await self.client.table('basejump.accounts').select('primary_owner_user_id').eq('id', self.account_id).execute()
             
             if not account_response.data or len(account_response.data) == 0:
+                await redis.set(cache_key, "None", ex=3600)  # Cache "no name" for 1 hour
                 return None
                 
             user_id = account_response.data[0].get('primary_owner_user_id')
             if not user_id:
+                await redis.set(cache_key, "None", ex=3600)
                 return None
             
             # Get user metadata from auth.users
             user_response = await self.client.table('auth.users').select('user_metadata, email').eq('id', user_id).execute()
             
             if not user_response.data or len(user_response.data) == 0:
+                await redis.set(cache_key, "None", ex=3600)
                 return None
                 
             user_data = user_response.data[0]
             user_metadata = user_data.get('user_metadata', {})
             email = user_data.get('email', '')
             
+            first_name = None
+            
             # Extract first name from user_metadata.name or email
             if user_metadata and user_metadata.get('name'):
                 # Extract first name from full name
                 full_name = user_metadata['name'].strip()
                 first_name = full_name.split(' ')[0]
-                return first_name if first_name else None
-            
-            if email:
+            elif email:
                 # Extract name from email prefix
                 email_prefix = email.split('@')[0]
                 # Remove numbers and special characters, capitalize first letter
                 import re
                 clean_name = re.sub(r'[0-9._-]', '', email_prefix).lower()
-                return clean_name.capitalize() if clean_name else None
+                first_name = clean_name.capitalize() if clean_name else None
+            
+            # Cache the result for 1 hour
+            cache_value = first_name if first_name else "None"
+            await redis.set(cache_key, cache_value, ex=3600)
+            logger.debug(f"📦 Cached first name for user {self.account_id}")
                 
-            return None
+            return first_name
             
         except Exception as e:
             logger.error(f"Failed to get user first name: {e}")
@@ -623,9 +696,23 @@ class AgentRunner:
         return None
     
     async def run(self) -> AsyncGenerator[Dict[str, Any], None]:
+        # Run setup operations in parallel for faster initialization
+        logger.debug("🚀 Starting parallel setup operations")
+        setup_start = asyncio.get_event_loop().time()
+        
+        # Setup must complete first (initializes client and account_id)
         await self.setup()
-        await self.setup_tools()
-        mcp_wrapper_instance = await self.setup_mcp_tools()
+        
+        # Now run tools and MCP setup in parallel (both depend on setup being done)
+        tools_task = asyncio.create_task(self.setup_tools())
+        mcp_task = asyncio.create_task(self.setup_mcp_tools())
+        
+        # Wait for both to complete
+        await tools_task
+        mcp_wrapper_instance = await mcp_task
+        
+        setup_duration = asyncio.get_event_loop().time() - setup_start
+        logger.debug(f"✅ Parallel setup completed in {setup_duration:.2f}s")
         
         system_message = await PromptManager.build_system_prompt(
             self.config.model_name, self.config.agent_config, 
@@ -637,17 +724,91 @@ class AgentRunner:
         iteration_count = 0
         continue_execution = True
 
+        # TWO-PHASE RESPONSE SYSTEM: Always give instant acknowledgement first, then do actual work
         latest_user_message = await self.client.table('messages').select('*').eq('thread_id', self.config.thread_id).eq('type', 'user').order('created_at', desc=True).limit(1).execute()
+        user_message_text = ""
+        is_simple_message = False
+        needs_instant_ack = True  # Always send instant acknowledgement
+        
         if latest_user_message.data and len(latest_user_message.data) > 0:
             data = latest_user_message.data[0]['content']
             if isinstance(data, str):
                 data = json.loads(data)
+            user_message_text = data.get('content', '')
+            
+            # Detect simple greetings/conversational messages (only need ack, no tools)
+            simple_patterns = ['hi', 'hello', 'hey', 'thanks', 'thank you', 'ok', 'okay', 
+                             'cool', 'nice', 'great', 'awesome', 'good', 'sup', 'yo']
+            message_lower = user_message_text.lower().strip().rstrip('!.,?')
+            
+            # Simple message if: short (<15 chars) AND matches pattern OR is very short (<5 chars)
+            if (len(message_lower) < 15 and any(pattern in message_lower for pattern in simple_patterns)) or len(message_lower) < 5:
+                is_simple_message = True
+                logger.info(f"🚀 Simple message detected: '{user_message_text[:20]}...' - single phase response only")
+            else:
+                logger.info(f"⚡ Complex message detected: '{user_message_text[:50]}...' - two-phase response: instant ack + tools")
+            
             if self.config.trace:
                 self.config.trace.update(input=data['content'])
 
         message_manager = MessageManager(self.client, self.config.thread_id, self.config.model_name, self.config.trace, 
                                          agent_config=self.config.agent_config, enable_context_manager=self.config.enable_context_manager)
 
+        # PHASE 1: Send instant acknowledgement for non-simple messages
+        if not is_simple_message and needs_instant_ack:
+            logger.info("📨 PHASE 1: Sending instant acknowledgement...")
+            try:
+                # Create a lightweight system prompt for instant ack
+                ack_system_prompt = {
+                    "role": "system",
+                    "content": f"You are Iris, an AI assistant. The user just sent you: '{user_message_text[:100]}...'\n\n"
+                               "Respond with a BRIEF (1-2 sentences) acknowledgement that you'll help them. "
+                               "Be friendly and confirm what you understand they want. "
+                               "Examples: 'I'll help you build that website! Let me start working on it.' or "
+                               "'Got it! I'll create that presentation for you right away.'\n\n"
+                               "Keep it SHORT - you'll provide the full response with details in a moment."
+                }
+                
+                # Quick LLM call for acknowledgement (no tools, minimal tokens)
+                ack_response = await self.thread_manager.run_thread(
+                    thread_id=self.config.thread_id,
+                    system_prompt=ack_system_prompt,
+                    stream=self.config.stream,
+                    llm_model=self.config.model_name,
+                    llm_temperature=0.7,  # Slightly higher for natural responses
+                    llm_max_tokens=150,  # Very short
+                    tool_choice="none",  # No tools for instant ack
+                    max_xml_tool_calls=0,
+                    temporary_message=None,
+                    processor_config=ProcessorConfig(
+                        xml_tool_calling=False,
+                        native_tool_calling=False,
+                        execute_tools=False,
+                        execute_on_stream=False,
+                        tool_execution_strategy="parallel",
+                        xml_adding_strategy="user_message"
+                    ),
+                    native_max_auto_continues=1,
+                    include_xml_examples=False,
+                    enable_thinking=False,
+                    reasoning_effort='low',
+                    enable_context_manager=False,  # Skip context management for speed
+                    generation=None,
+                    cache_metrics=None
+                )
+                
+                # Stream the acknowledgement to user
+                if hasattr(ack_response, '__aiter__'):
+                    async for chunk in ack_response:
+                        yield chunk
+                
+                logger.info("✅ PHASE 1 complete: Acknowledgement sent")
+                
+            except Exception as e:
+                logger.error(f"Failed to send instant acknowledgement: {e}")
+                # Continue to main response anyway
+        
+        # PHASE 2: Do the actual work with tools (or simple response for greetings)
         while continue_execution and iteration_count < self.config.max_iterations:
             iteration_count += 1
 
@@ -671,6 +832,11 @@ class AgentRunner:
             temporary_message = None
             max_tokens = self.get_max_tokens()
             logger.debug(f"max_tokens: {max_tokens}")
+            
+            # Log phase 2 start for complex messages
+            if not is_simple_message:
+                logger.info("🔧 PHASE 2: Starting tool execution and detailed response...")
+            
             generation = self.config.trace.generation(name="thread_manager.run_thread") if self.config.trace else None
             try:
                 cache_metrics = None
@@ -732,32 +898,62 @@ class AgentRunner:
                     except Exception as e:
                         logger.warning(f"Cache probe failed (continuing with streaming): {e}")
                 
-                response = await self.thread_manager.run_thread(
-                    thread_id=self.config.thread_id,
-                    system_prompt=system_message,
-                    stream=self.config.stream,
-                    llm_model=self.config.model_name,
-                    llm_temperature=0,
-                    llm_max_tokens=max_tokens,
-                    tool_choice="auto",
-                    max_xml_tool_calls=1,
-                    temporary_message=temporary_message,
-                    processor_config=ProcessorConfig(
-                        xml_tool_calling=True,
-                        native_tool_calling=False,
-                        execute_tools=True,
-                        execute_on_stream=True,
-                        tool_execution_strategy="parallel",
-                        xml_adding_strategy="user_message"
-                    ),
-                    native_max_auto_continues=self.config.native_max_auto_continues,
-                    include_xml_examples=True,
-                    enable_thinking=self.config.enable_thinking,
-                    reasoning_effort=self.config.reasoning_effort,
-                    enable_context_manager=self.config.enable_context_manager,
-                    generation=generation,
-                    cache_metrics=cache_metrics
-                )
+                # Use fast path for simple messages (no tools, instant response)
+                if is_simple_message:
+                    response = await self.thread_manager.run_thread(
+                        thread_id=self.config.thread_id,
+                        system_prompt=system_message,
+                        stream=self.config.stream,
+                        llm_model=self.config.model_name,
+                        llm_temperature=0,
+                        llm_max_tokens=max_tokens,
+                        tool_choice="none",  # No tools for simple messages
+                        max_xml_tool_calls=0,  # Disable XML tools
+                        temporary_message=temporary_message,
+                        processor_config=ProcessorConfig(
+                            xml_tool_calling=False,  # Disabled for speed
+                            native_tool_calling=False,
+                            execute_tools=False,  # No tool execution
+                            execute_on_stream=False,
+                            tool_execution_strategy="parallel",
+                            xml_adding_strategy="user_message"
+                        ),
+                        native_max_auto_continues=1,  # Single response only
+                        include_xml_examples=False,  # Skip examples for speed
+                        enable_thinking=False,  # Skip thinking for greetings
+                        reasoning_effort='low',
+                        enable_context_manager=self.config.enable_context_manager,
+                        generation=generation,
+                        cache_metrics=cache_metrics
+                    )
+                else:
+                    # Normal path with tools for complex messages
+                    response = await self.thread_manager.run_thread(
+                        thread_id=self.config.thread_id,
+                        system_prompt=system_message,
+                        stream=self.config.stream,
+                        llm_model=self.config.model_name,
+                        llm_temperature=0,
+                        llm_max_tokens=max_tokens,
+                        tool_choice="auto",
+                        max_xml_tool_calls=1,
+                        temporary_message=temporary_message,
+                        processor_config=ProcessorConfig(
+                            xml_tool_calling=True,
+                            native_tool_calling=False,
+                            execute_tools=True,
+                            execute_on_stream=True,
+                            tool_execution_strategy="parallel",
+                            xml_adding_strategy="user_message"
+                        ),
+                        native_max_auto_continues=self.config.native_max_auto_continues,
+                        include_xml_examples=True,
+                        enable_thinking=self.config.enable_thinking,
+                        reasoning_effort=self.config.reasoning_effort,
+                        enable_context_manager=self.config.enable_context_manager,
+                        generation=generation,
+                        cache_metrics=cache_metrics
+                    )
 
                 if isinstance(response, dict) and "status" in response and response["status"] == "error":
                     yield response

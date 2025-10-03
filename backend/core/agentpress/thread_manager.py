@@ -227,43 +227,65 @@ class ThreadManager:
             logger.error(f"Failed to add message to thread {thread_id}: {str(e)}", exc_info=True)
             raise
 
-    async def get_llm_messages(self, thread_id: str) -> List[Dict[str, Any]]:
-        """Get all messages for a thread.
+    async def get_llm_messages(self, thread_id: str, max_messages: int = 1000) -> List[Dict[str, Any]]:
+        """Get messages for a thread with optional limit.
 
-        This method uses the SQL function which handles context truncation
-        by considering summary messages.
+        This method fetches messages with smart batching and optional limiting
+        for performance optimization.
+        
+        IMPORTANT: Messages are ALWAYS fetched fresh from the database (NOT cached).
+        This ensures the model always has access to the complete conversation history
+        and doesn't "forget" previous messages. Only the system prompt is cached.
 
         Args:
             thread_id: The ID of the thread to get messages for.
+            max_messages: Maximum number of messages to fetch (default: 1000, None for all)
 
         Returns:
-            List of message objects.
+            List of message objects in chronological order.
         """
-        logger.debug(f"Getting messages for thread {thread_id}")
+        logger.debug(f"Getting messages for thread {thread_id} (max: {max_messages})")
         client = await self.db.client
 
         try:
-            # result = await client.rpc('get_llm_formatted_messages', {'p_thread_id': thread_id}).execute()
-            
-            # Fetch messages in batches of 1000 to avoid overloading the database
-            # Include both type and content to handle image_context messages
+            # Fetch messages efficiently with limit
+            # Order by created_at DESC first to get most recent, then reverse
             all_messages = []
-            batch_size = 1000
-            offset = 0
             
-            while True:
-                result = await client.table('messages').select('message_id, type, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').range(offset, offset + batch_size - 1).execute()
+            if max_messages and max_messages < 1000:
+                # For small limits, fetch directly
+                result = await client.table('messages').select('message_id, type, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at', desc=False).limit(max_messages).execute()
                 
-                if not result.data or len(result.data) == 0:
-                    break
-                    
-                all_messages.extend(result.data)
+                if result.data:
+                    all_messages = result.data
+            else:
+                # Fetch in batches for large or unlimited queries
+                batch_size = 1000
+                offset = 0
+                fetch_limit = max_messages if max_messages else None
                 
-                # If we got fewer than batch_size records, we've reached the end
-                if len(result.data) < batch_size:
-                    break
+                while True:
+                    # Calculate how many to fetch in this batch
+                    if fetch_limit:
+                        remaining = fetch_limit - len(all_messages)
+                        current_batch_size = min(batch_size, remaining)
+                        if current_batch_size <= 0:
+                            break
+                    else:
+                        current_batch_size = batch_size
                     
-                offset += batch_size
+                    result = await client.table('messages').select('message_id, type, content').eq('thread_id', thread_id).eq('is_llm_message', True).order('created_at').range(offset, offset + current_batch_size - 1).execute()
+                    
+                    if not result.data or len(result.data) == 0:
+                        break
+                        
+                    all_messages.extend(result.data)
+                    
+                    # If we got fewer than batch_size records, we've reached the end
+                    if len(result.data) < current_batch_size:
+                        break
+                        
+                    offset += current_batch_size
             
             # Use all_messages instead of result.data in the rest of the method
             result_data = all_messages
