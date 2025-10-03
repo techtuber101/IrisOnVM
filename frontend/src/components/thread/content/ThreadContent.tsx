@@ -131,7 +131,7 @@ export function renderMarkdownContent(
                         (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
 
                     // Check if previous tool call was 'complete' to determine rendering style
-                    const previousToolWasComplete = index > 0 && toolCalls[index - 1]?.name === 'complete';
+                    const previousToolWasComplete = index > 0 && toolCalls[index - 1]?.functionName.replace(/_/g, '-') === 'complete';
                     
                     if (previousToolWasComplete && askText) {
                         // Render as AskQuestionsSection (below completion card)
