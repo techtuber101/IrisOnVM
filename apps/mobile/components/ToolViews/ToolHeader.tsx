@@ -26,9 +26,9 @@ const getToolIcon = (toolName: string) => {
 const getToolDisplayName = (toolName: string) => {
     switch (toolName) {
         case 'ask':
-            return 'Ask User';
+            return 'Mission Accomplished';
         case 'complete':
-            return 'Task Complete';
+            return 'Mission Accomplished';
         default:
             return toolName?.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Tool';
     }

@@ -45,7 +45,7 @@ def initialize():
     
     # Connection pool configuration - optimized for production
     max_connections = 128            # Reasonable limit for production
-    socket_timeout = 15.0            # 15 seconds socket timeout
+    socket_timeout = 300.0           # 5 minutes socket timeout (for long-running pubsub)
     connect_timeout = 10.0           # 10 seconds connection timeout
     retry_on_timeout = not (os.getenv("REDIS_RETRY_ON_TIMEOUT", "True").lower() != "true")
 

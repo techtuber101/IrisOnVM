@@ -185,4 +185,51 @@ export function extractAskData(
     actualToolTimestamp,
     actualAssistantTimestamp
   };
+}
+
+// Parse questions from ask tool text
+export function parseAskQuestions(text: string | null): string[] {
+  if (!text) {
+    return [];
+  }
+
+  const questions: string[] = [];
+
+  // Look for numbered questions like "1. Question?" or "1) Question?"
+  const numberedMatches = text.match(/^\s*\d+[\.)]\s+(.+)$/gm);
+  if (numberedMatches && numberedMatches.length > 0) {
+    numberedMatches.forEach(match => {
+      const cleaned = match.replace(/^\s*\d+[\.)]\s+/, '').trim();
+      if (cleaned) {
+        questions.push(cleaned);
+      }
+    });
+  }
+
+  // If no numbered questions found, look for bullet points
+  if (questions.length === 0) {
+    const bulletMatches = text.match(/^\s*[-•*]\s+(.+)$/gm);
+    if (bulletMatches && bulletMatches.length > 0) {
+      bulletMatches.forEach(match => {
+        const cleaned = match.replace(/^\s*[-•*]\s+/, '').trim();
+        if (cleaned) {
+          questions.push(cleaned);
+        }
+      });
+    }
+  }
+
+  // If still no questions found, split by newlines and filter question-like lines
+  if (questions.length === 0) {
+    const lines = text.split('\n').filter(line => line.trim().length > 0);
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      // Check if line ends with question mark or contains "you want" or "would you"
+      if (trimmed.endsWith('?') || /(?:do you|would you|can you|should|want to)/i.test(trimmed)) {
+        questions.push(trimmed);
+      }
+    });
+  }
+
+  return questions;
 } 

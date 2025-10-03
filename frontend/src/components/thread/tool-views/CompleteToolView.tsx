@@ -148,7 +148,7 @@ export function CompleteToolView({
     return ext === 'html' || ext === 'htm' || ext === 'md' || ext === 'markdown' || ext === 'csv' || ext === 'tsv';
   };
 
-  const toolTitle = getToolTitle(name) || 'Task Complete';
+  const toolTitle = getToolTitle(name) || 'Mission Accomplished';
 
   const handleFileClick = (filePath: string) => {
     if (onFileClick) {
@@ -398,7 +398,7 @@ export function CompleteToolView({
                   <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-lg font-medium text-foreground mb-2">
-                  Task Completed
+                  Mission Accomplished
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   No additional details provided

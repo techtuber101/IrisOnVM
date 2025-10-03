@@ -6,7 +6,6 @@ from core.utils.logger import logger
 from core.utils.config import config
 import os
 import json
-import litellm
 import openai
 import asyncio
 from typing import Optional
@@ -346,43 +345,33 @@ class SandboxFilesTool(SandboxToolsBase):
         Returns a tuple (new_content, error_message).
         On success, error_message is None.
         On failure, new_content is None.
+        
+        Note: This function ONLY uses the direct Morph API - no fallbacks.
         """
         try:
             morph_api_key = getattr(config, 'MORPH_API_KEY', None) or os.getenv('MORPH_API_KEY')
-            openrouter_key = getattr(config, 'OPENROUTER_API_KEY', None) or os.getenv('OPENROUTER_API_KEY')
+            
+            if not morph_api_key:
+                error_msg = "MORPH_API_KEY not found. Cannot perform AI edit without Morph API key."
+                logger.error(error_msg)
+                return None, error_msg
             
             messages = [{
                 "role": "user", 
                 "content": f"<instruction>{instructions}</instruction>\n<code>{file_content}</code>\n<update>{code_edit}</update>"
             }]
 
-            response = None
-            if morph_api_key:
-                logger.debug("Using direct Morph API for file editing.")
-                client = openai.AsyncOpenAI(
-                    api_key=morph_api_key,
-                    base_url="https://api.morphllm.com/v1"
-                )
-                response = await client.chat.completions.create(
-                    model="morph-v3-large",
-                    messages=messages,
-                    temperature=0.0,
-                    timeout=30.0
-                )
-            elif openrouter_key:
-                logger.debug("Morph API key not set, falling back to OpenRouter for file editing via litellm.")
-                response = await litellm.acompletion(
-                    model="openrouter/morph/morph-v3-large",
-                    messages=messages,
-                    api_key=openrouter_key,
-                    api_base="https://openrouter.ai/api/v1",
-                    temperature=0.0,
-                    timeout=30.0
-                )
-            else:
-                error_msg = "No Morph or OpenRouter API key found, cannot perform AI edit."
-                logger.warning(error_msg)
-                return None, error_msg
+            logger.debug("Using direct Morph API for file editing (no fallback).")
+            client = openai.AsyncOpenAI(
+                api_key=morph_api_key,
+                base_url="https://api.morphllm.com/v1"
+            )
+            response = await client.chat.completions.create(
+                model="morph-v3-large",
+                messages=messages,
+                temperature=0.0,
+                timeout=30.0
+            )
             
             if response and response.choices and len(response.choices) > 0:
                 content = response.choices[0].message.content.strip()
@@ -395,18 +384,18 @@ class SandboxFilesTool(SandboxToolsBase):
                 
                 return content, None
             else:
-                error_msg = f"Invalid response from Morph/OpenRouter API: {response}"
+                error_msg = f"Invalid response from Morph API: {response}"
                 logger.error(error_msg)
                 return None, error_msg
                 
         except Exception as e:
-            error_message = f"AI model call for file edit failed. Exception: {str(e)}"
+            error_message = f"Morph API call for file edit failed. Exception: {str(e)}"
             # Try to get more details from the exception if it's an API error
             if hasattr(e, 'response') and hasattr(e.response, 'text'):
                 error_message += f"\n\nAPI Response Body:\n{e.response.text}"
-            elif hasattr(e, 'body'): # litellm sometimes puts it in body
+            elif hasattr(e, 'body'):
                 error_message += f"\n\nAPI Response Body:\n{e.body}"
-            logger.error(f"Error calling Morph/OpenRouter API: {error_message}", exc_info=True)
+            logger.error(f"Error calling Morph API: {error_message}", exc_info=True)
             return None, error_message
 
     @openapi_schema({

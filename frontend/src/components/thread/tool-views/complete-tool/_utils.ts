@@ -186,3 +186,89 @@ export function extractCompleteData(
     actualAssistantTimestamp
   };
 }
+
+// Parse structured completion data for the summary card
+export function parseCompletionSummary(text: string | null): {
+  context: string | null;
+  executiveSummary: string[];
+  deliverables: string[];
+} {
+  if (!text) {
+    return {
+      context: null,
+      executiveSummary: [],
+      deliverables: []
+    };
+  }
+
+  // Extract context - look for phrases after "executing", "completed", "finished"
+  let context: string | null = null;
+  const contextPatterns = [
+    /executing\s+(.+?)(?:\.|$|here|executive|summary|\n)/i,
+    /completed\s+(.+?)(?:\.|$|here|executive|summary|\n)/i,
+    /finished\s+(.+?)(?:\.|$|here|executive|summary|\n)/i,
+    /accomplished\s+(.+?)(?:\.|$|here|executive|summary|\n)/i,
+  ];
+  
+  for (const pattern of contextPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      context = match[1].trim();
+      break;
+    }
+  }
+
+  // Extract executive summary points - look for bullet points or numbered lists
+  const executiveSummary: string[] = [];
+  const summaryPatterns = [
+    /(?:executive summary|summary)[\s:]*\n([\s\S]+?)(?:\n\n|key deliverables|deliverables|$)/i,
+    /here (?:is |are )?(?:the |an? )?(?:executive )?summary[\s:]*\n([\s\S]+?)(?:\n\n|key deliverables|deliverables|$)/i,
+  ];
+
+  for (const pattern of summaryPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const summaryText = match[1];
+      // Extract bullet points or numbered items
+      const points = summaryText.match(/^[\s]*[-•*\d.]+\s+(.+)$/gm);
+      if (points) {
+        points.forEach(point => {
+          const cleaned = point.replace(/^[\s]*[-•*\d.]+\s+/, '').trim();
+          if (cleaned) {
+            executiveSummary.push(cleaned);
+          }
+        });
+      }
+      break;
+    }
+  }
+
+  // Extract deliverables - look for file paths or file names
+  const deliverables: string[] = [];
+  const deliverablePatterns = [
+    /(?:key deliverables|deliverables|files created|created files)[\s:]*\n([\s\S]+?)(?:\n\n|$)/i,
+  ];
+
+  for (const pattern of deliverablePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const deliverableText = match[1];
+      // Look for file paths or names in bullet points
+      const files = deliverableText.match(/[-•*\d.]+\s+([^\n]+?\.\w+)/g);
+      if (files) {
+        files.forEach(file => {
+          const cleaned = file.replace(/^[\s]*[-•*\d.]+\s+/, '').trim();
+          if (cleaned && cleaned.includes('.')) {
+            deliverables.push(cleaned);
+          }
+        });
+      }
+    }
+  }
+
+  return {
+    context,
+    executiveSummary,
+    deliverables
+  };
+}

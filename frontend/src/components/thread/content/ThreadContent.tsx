@@ -19,6 +19,10 @@ import { ShowToolStream } from './ShowToolStream';
 import { ComposioUrlDetector } from './composio-url-detector';
 import { StreamingText } from './StreamingText';
 import { HIDE_STREAMING_XML_TAGS } from '@/components/thread/utils';
+import { CompletionSummaryCard } from './CompletionSummaryCard';
+import { AskQuestionsSection } from './AskQuestionsSection';
+import { parseCompletionSummary } from '../tool-views/complete-tool/_utils';
+import { parseAskQuestions } from '../tool-views/ask-tool/_utils';
 
 
 // Helper function to render all attachments as standalone messages
@@ -126,25 +130,52 @@ export function renderMarkdownContent(
                     const attachmentArray = Array.isArray(attachments) ? attachments :
                         (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
 
-                    // Render ask tool content with attachment UI
-                    contentParts.push(
-                        <div key={`ask-${match.index}-${index}`} className="space-y-3">
-                            <ComposioUrlDetector content={askText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
-                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
-                        </div>
-                    );
+                    // Check if previous tool call was 'complete' to determine rendering style
+                    const previousToolWasComplete = index > 0 && toolCalls[index - 1]?.name === 'complete';
                     
-                    // Also render standalone attachments outside the message
-                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
-                    if (standaloneAttachments) {
+                    if (previousToolWasComplete && askText) {
+                        // Render as AskQuestionsSection (below completion card)
+                        const questions = parseAskQuestions(askText);
+                        if (questions.length > 0) {
+                            contentParts.push(
+                                <div key={`ask-questions-${match.index}-${index}`}>
+                                    <AskQuestionsSection questions={questions} />
+                                </div>
+                            );
+                        }
+                        
+                        // Still show attachments if present
+                        if (attachmentArray.length > 0) {
+                            const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                            if (standaloneAttachments) {
+                                contentParts.push(
+                                    <div key={`ask-func-attachments-${match.index}-${index}`}>
+                                        {standaloneAttachments}
+                                    </div>
+                                );
+                            }
+                        }
+                    } else {
+                        // Render regular ask tool content
                         contentParts.push(
-                            <div key={`ask-func-attachments-${match.index}-${index}`}>
-                                {standaloneAttachments}
+                            <div key={`ask-${match.index}-${index}`} className="space-y-3">
+                                <ComposioUrlDetector content={askText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
+                                {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
                             </div>
                         );
+                        
+                        // Also render standalone attachments outside the message
+                        const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                        if (standaloneAttachments) {
+                            contentParts.push(
+                                <div key={`ask-func-attachments-${match.index}-${index}`}>
+                                    {standaloneAttachments}
+                                </div>
+                            );
+                        }
                     }
                 } else if (toolName === 'complete') {
-                    // Handle complete tool specially - extract text and attachments
+                    // Handle complete tool specially - render CompletionSummaryCard
                     const completeText = toolCall.parameters.text || '';
                     const attachments = toolCall.parameters.attachments || '';
 
@@ -152,23 +183,23 @@ export function renderMarkdownContent(
                     const attachmentArray = Array.isArray(attachments) ? attachments :
                         (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
 
-                    // Render complete tool content with attachment UI
+                    // Parse completion summary from text
+                    const { context, executiveSummary, deliverables: parsedDeliverables } = parseCompletionSummary(completeText);
+                    
+                    // Combine parsed deliverables with attachments
+                    const allDeliverables = [...new Set([...parsedDeliverables, ...attachmentArray])];
+
+                    // Render CompletionSummaryCard
                     contentParts.push(
-                        <div key={`complete-${match.index}-${index}`} className="space-y-3">
-                            <ComposioUrlDetector content={completeText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
-                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                        <div key={`complete-${match.index}-${index}`} className="my-6">
+                            <CompletionSummaryCard
+                                context={context || undefined}
+                                executiveSummary={executiveSummary}
+                                deliverables={allDeliverables}
+                                onFileClick={fileViewerHandler}
+                            />
                         </div>
                     );
-                    
-                    // Also render standalone attachments outside the message
-                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
-                    if (standaloneAttachments) {
-                        contentParts.push(
-                            <div key={`complete-func-attachments-${match.index}-${index}`}>
-                                {standaloneAttachments}
-                            </div>
-                        );
-                    }
                 } else {
                     const IconComponent = getToolIcon(toolName);
 

@@ -344,7 +344,7 @@ export const CompleteToolView: React.FC<CompleteToolViewProps> = ({
                             <Sparkles size={20} color="#FFD700" />
                         </Animated.View>
                     </View>
-                    <Body style={styles.emptyTitle}>Task Completed!</Body>
+                    <Body style={styles.emptyTitle}>Mission Accomplished!</Body>
                     <Body style={styles.emptySubtitle}>
                         Successfully finished the assigned task
                     </Body>
