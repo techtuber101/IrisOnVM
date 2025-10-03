@@ -676,7 +676,11 @@ class AgentRunner:
                 cache_metrics = None
                 from core.utils.llm_cache_utils import is_cache_supported, needs_cache_probe
                 
-                if self.config.stream and needs_cache_probe(self.config.model_name):
+                # DISABLED: Cache probe adds 1-2s latency per request
+                # Only enable for debugging/monitoring when needed
+                ENABLE_CACHE_PROBE = False  # Set to True only when you need cache metrics
+                
+                if ENABLE_CACHE_PROBE and self.config.stream and needs_cache_probe(self.config.model_name):
                     logger.info(f"🔍 Making cache probe for {self.config.model_name} (doesn't send cache metrics in streaming)...")
                     
                     try:

@@ -35,9 +35,9 @@ litellm.drop_params = True
 
 # Constants
 MAX_RETRIES = 3
-PRIMARY_MODEL_RETRIES = 2  # Additional retries for primary model before fallback
-REQUEST_TIMEOUT = 60  # Request timeout in seconds
-CIRCUIT_BREAKER_THRESHOLD = 5  # Number of failures before circuit opens
+PRIMARY_MODEL_RETRIES = 1  # Additional retries for primary model before fallback (reduced from 2 to 1 for faster fallback)
+REQUEST_TIMEOUT = 120  # Request timeout in seconds (increased from 60 to 120)
+CIRCUIT_BREAKER_THRESHOLD = 3  # Number of failures before circuit opens (reduced from 5 to 3 for faster fallback)
 CIRCUIT_BREAKER_TIMEOUT = 300  # Circuit breaker timeout in seconds
 HEALTH_CHECK_INTERVAL = 60  # Health check interval in seconds
 
@@ -156,6 +156,8 @@ def get_openrouter_fallback(model_name: str) -> Optional[str]:
         return "openai/gpt-5"
     elif model_name == "openai/gpt-5":
         return "gemini/gemini-2.5-flash"
+    elif model_name == "gemini/gemini-2.5-flash-lite":
+        return "openai/gpt-5-mini"
     return None
 
 
@@ -304,18 +306,42 @@ def _classify_error(error: Exception) -> LLMError:
     """Classify LiteLLM errors into specific error types."""
     error_str = str(error).lower()
     
-    if isinstance(error, LiteLLMTimeout) or "timeout" in error_str:
+    # Timeout errors
+    if isinstance(error, LiteLLMTimeout) or "timeout" in error_str or "timed out" in error_str:
         return LLMTimeoutError(f"Request timeout: {error}")
-    elif isinstance(error, LiteLLMRateLimit) or "rate limit" in error_str:
+    
+    # Rate limit errors (various phrasings)
+    elif isinstance(error, LiteLLMRateLimit) or any(phrase in error_str for phrase in [
+        "rate limit", "rate_limit", "too many requests", "429", "quota exceeded", 
+        "resource exhausted", "requests per minute"
+    ]):
         return LLMRateLimitError(f"Rate limit exceeded: {error}")
-    elif isinstance(error, LiteLLMAuth) or "authentication" in error_str or "unauthorized" in error_str:
-        return LLMAuthenticationError(f"Authentication failed: {error}")
-    elif isinstance(error, LiteLLMServiceUnavailable) or "service unavailable" in error_str:
+    
+    # Service unavailable / overloaded
+    elif isinstance(error, LiteLLMServiceUnavailable) or any(phrase in error_str for phrase in [
+        "service unavailable", "overloaded", "503", "502", "504", 
+        "temporarily unavailable", "server error", "internal error",
+        "connection", "network", "unavailable"
+    ]):
         return LLMServiceUnavailableError(f"Service unavailable: {error}")
-    elif "quota" in error_str or "billing" in error_str:
+    
+    # Authentication errors
+    elif isinstance(error, LiteLLMAuth) or any(phrase in error_str for phrase in [
+        "authentication", "unauthorized", "401", "invalid api key", 
+        "api key", "permission denied", "forbidden", "403"
+    ]):
+        return LLMAuthenticationError(f"Authentication failed: {error}")
+    
+    # Quota/billing errors
+    elif any(phrase in error_str for phrase in [
+        "quota", "billing", "insufficient credits", "payment", "subscription"
+    ]):
         return LLMQuotaExceededError(f"Quota exceeded: {error}")
+    
+    # Default: Treat as service unavailable to trigger fallback
     else:
-        return LLMError(f"LLM API error: {error}")
+        logger.warning(f"Unclassified LLM error (treating as service unavailable to trigger fallback): {error}")
+        return LLMServiceUnavailableError(f"LLM API error: {error}")
 
 def _is_circuit_breaker_open(model_name: str) -> bool:
     """Check if circuit breaker is open for a model."""
@@ -509,10 +535,12 @@ async def make_llm_api_call_with_fallback(
     fallback_chain = _build_fallback_chain(model_name)
 
     if not fallback_chain:
+        logger.error(f"❌ Could not build fallback chain for model '{model_name}'")
         raise LLMRetryError(f"No valid models available for requested model '{model_name}'")
 
     chain_display = " → ".join(fallback_chain)
-    logger.info(f"📡 API Call: Fallback chain prepared: {chain_display}")
+    logger.info(f"🔗 Fallback chain prepared: {chain_display}")
+    logger.info(f"📡 Starting API call with primary model: {fallback_chain[0]}")
 
     last_error = None
     for index, current_model in enumerate(fallback_chain):
@@ -552,23 +580,27 @@ async def make_llm_api_call_with_fallback(
             except (LLMTimeoutError, LLMRateLimitError, LLMServiceUnavailableError) as e:
                 last_error = e
                 if attempt < attempts:
-                    backoff = min(4, 2 ** (attempt - 1))
+                    # Reduced backoff for faster fallback: 0.5s for first retry
+                    backoff = min(2, 0.5 * (2 ** (attempt - 1)))
                     logger.warning(
                         f"⚠️ {current_model} attempt {attempt} failed with {type(e).__name__}: {e}. Retrying in {backoff}s"
                     )
                     await asyncio.sleep(backoff)
                     continue
 
-                logger.warning(f"⚠️ {current_model} failed with {type(e).__name__}: {e}")
+                logger.warning(f"⚠️ {current_model} failed with {type(e).__name__}: {e}. Switching to fallback model.")
                 break
 
             except (LLMAuthenticationError, LLMQuotaExceededError) as e:
                 logger.error(f"🚨 Critical error with {current_model}: {e}")
+                _record_failure(current_model)
                 raise e
 
             except Exception as e:
                 last_error = e
                 logger.error(f"❌ Unexpected error with {current_model}: {e}")
+                _record_failure(current_model)
+                logger.warning(f"⚠️ Moving to next fallback model after unexpected error")
                 break
 
     # All models failed

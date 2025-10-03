@@ -937,6 +937,17 @@ class ResponseProcessor:
                         logger.error(f"Error saving assistant response end for stream: {str(e)}")
                         self.trace.event(name="error_saving_assistant_response_end_for_stream", level="ERROR", status_message=(f"Error saving assistant response end for stream: {str(e)}"))
 
+        except GeneratorExit:
+            # Generator is being closed (e.g., client disconnect)
+            # Clean up the underlying LLM response generator if it exists
+            logger.debug("Generator being closed, cleaning up LLM response stream")
+            if hasattr(llm_response, 'aclose'):
+                try:
+                    await llm_response.aclose()
+                except Exception as close_err:
+                    logger.debug(f"Error closing LLM response generator: {close_err}")
+            raise  # Must re-raise GeneratorExit
+            
         except Exception as e:
             logger.error(f"Error processing stream: {str(e)}", exc_info=True)
             self.trace.event(name="error_processing_stream", level="ERROR", status_message=(f"Error processing stream: {str(e)}"))
@@ -957,7 +968,8 @@ class ResponseProcessor:
                 self.trace.event(name="anthropic_exception_overloaded_detected", level="ERROR", status_message=(f"AnthropicException - Overloaded detected - Falling back to OpenRouter: {str(e)}"))
             raise # Use bare 'raise' to preserve the original exception with its traceback
 
-        finally:
+        else:
+            # Normal completion path (no exceptions)
             # Update continuous state for potential auto-continue
             if should_auto_continue:
                 continuous_state['accumulated_content'] = accumulated_content
@@ -1150,6 +1162,11 @@ class ResponseProcessor:
                     logger.error(f"Error saving assistant response end for non-stream: {str(e)}")
                     self.trace.event(name="error_saving_assistant_response_end_for_non_stream", level="ERROR", status_message=(f"Error saving assistant response end for non-stream: {str(e)}"))
 
+        except GeneratorExit:
+             # Generator is being closed (e.g., client disconnect)
+             logger.debug("Non-streaming generator being closed")
+             raise  # Must re-raise GeneratorExit
+             
         except Exception as e:
              logger.error(f"Error processing non-streaming response: {str(e)}", exc_info=True)
              self.trace.event(name="error_processing_non_streaming_response", level="ERROR", status_message=(f"Error processing non-streaming response: {str(e)}"))
@@ -1166,7 +1183,8 @@ class ResponseProcessor:
              self.trace.event(name="re_raising_error_to_stop_further_processing", level="CRITICAL", status_message=(f"Re-raising error to stop further processing: {str(e)}"))
              raise # Use bare 'raise' to preserve the original exception with its traceback
 
-        finally:
+        else:
+             # Normal completion path (no exceptions)
              # Save and Yield the final thread_run_end status
             end_content = {"status_type": "thread_run_end"}
             end_msg_obj = await self.add_message(
