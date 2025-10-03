@@ -17,14 +17,24 @@ ON agent_runs(thread_id, status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_threads_account_created 
 ON threads(account_id, created_at DESC);
 
--- Index for agent_versions by agent_id and version lookups
-CREATE INDEX IF NOT EXISTS idx_agent_versions_agent_id 
-ON agent_versions(agent_id, created_at DESC);
+-- Index for agent_versions by agent_id and version lookups (if table exists)
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'agent_versions') THEN
+        CREATE INDEX IF NOT EXISTS idx_agent_versions_agent_id 
+        ON agent_versions(agent_id, created_at DESC);
+    END IF;
+END $$;
 
--- Index for knowledge_base_items by agent_id (for RPC function)
-CREATE INDEX IF NOT EXISTS idx_knowledge_base_items_agent_id 
-ON knowledge_base_items(agent_id)
-WHERE deleted_at IS NULL;
+-- Index for knowledge_base_items by agent_id (if table exists)
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'knowledge_base_items') THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_base_items_agent_id 
+        ON knowledge_base_items(agent_id)
+        WHERE deleted_at IS NULL;
+    END IF;
+END $$;
 
 -- Composite index for projects by account
 CREATE INDEX IF NOT EXISTS idx_projects_account_id 
@@ -32,11 +42,21 @@ ON projects(account_id, created_at DESC);
 
 COMMIT;
 
--- Analyze tables to update query planner statistics
-ANALYZE messages;
-ANALYZE agent_runs;
-ANALYZE threads;
-ANALYZE projects;
-ANALYZE agent_versions;
-ANALYZE knowledge_base_items;
+-- Analyze tables to update query planner statistics (only existing tables)
+DO $$ 
+BEGIN
+    ANALYZE messages;
+    ANALYZE agent_runs;
+    ANALYZE threads;
+    ANALYZE projects;
+    
+    -- Analyze optional tables if they exist
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'agent_versions') THEN
+        ANALYZE agent_versions;
+    END IF;
+    
+    IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'knowledge_base_items') THEN
+        ANALYZE knowledge_base_items;
+    END IF;
+END $$;
 

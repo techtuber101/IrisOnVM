@@ -1,0 +1,5 @@
+# Optional performance dependencies
+# Install with: pip install -r requirements-optional.txt
+
+orjson>=3.10.0
+
