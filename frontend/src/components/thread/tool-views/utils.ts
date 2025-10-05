@@ -561,6 +561,11 @@ function processFileContent(content: string | object): string {
     return JSON.stringify(content, null, 2);
   }
 
+  // Ensure content is a string before processing
+  if (typeof content !== 'string') {
+    return '';
+  }
+
   const trimmedContent = content.trim();
   const isLikelyJson = (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) ||
                        (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'));
@@ -570,6 +575,7 @@ function processFileContent(content: string | object): string {
       const parsed = JSON.parse(content);
       return JSON.stringify(parsed, null, 2);
     } catch (e) {
+      // If JSON parsing fails, continue with string processing
     }
   }
   return content
