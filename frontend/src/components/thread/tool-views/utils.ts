@@ -456,9 +456,9 @@ export function extractFilePath(content: string | object | undefined | null): st
 }
 
 // Helper to clean and process a file path string, handling escaped chars
-function cleanFilePath(path: string): string {
-  if (!path) return path;
-
+function cleanFilePath(path: string | any): string {
+  if (!path || typeof path !== 'string') return '';
+  
   // Handle escaped newlines and other escaped characters
   return path
     .replace(/\\n/g, '\n') // Replace \n with actual newlines
