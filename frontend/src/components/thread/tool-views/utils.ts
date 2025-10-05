@@ -457,18 +457,23 @@ export function extractFilePath(content: string | object | undefined | null): st
 
 // Helper to clean and process a file path string, handling escaped chars
 function cleanFilePath(path: string | any): string {
-  if (!path || typeof path !== 'string') return '';
-  
-  // Handle escaped newlines and other escaped characters
-  return path
-    .replace(/\\n/g, '\n') // Replace \n with actual newlines
-    .replace(/\\t/g, '\t') // Replace \t with actual tabs
-    .replace(/\\r/g, '') // Remove \r
-    .replace(/\\\\/g, '\\') // Replace \\ with \
-    .replace(/\\"/g, '"') // Replace \" with "
-    .replace(/\\'/g, "'") // Replace \' with '
-    .split('\n')[0] // Take only the first line if multiline
-    .trim(); // Trim whitespace
+  try {
+    if (!path || typeof path !== 'string') return '';
+    
+    // Handle escaped newlines and other escaped characters
+    return path
+      .replace(/\\n/g, '\n') // Replace \n with actual newlines
+      .replace(/\\t/g, '\t') // Replace \t with actual tabs
+      .replace(/\\r/g, '') // Remove \r
+      .replace(/\\\\/g, '\\') // Replace \\ with \
+      .replace(/\\"/g, '"') // Replace \" with "
+      .replace(/\\'/g, "'") // Replace \' with '
+      .split('\n')[0] // Take only the first line if multiline
+      .trim(); // Trim whitespace
+  } catch (error) {
+    console.error('Error in cleanFilePath:', error, 'Path:', path, 'Type:', typeof path);
+    return '';
+  }
 }
 
 // Helper to extract str-replace old and new strings
@@ -556,35 +561,40 @@ export function extractFileContent(
 }
 
 function processFileContent(content: string | object): string {
-  if (!content) return '';
-  if (typeof content === 'object') {
-    return JSON.stringify(content, null, 2);
-  }
+  try {
+    if (!content) return '';
+    if (typeof content === 'object') {
+      return JSON.stringify(content, null, 2);
+    }
 
-  // Ensure content is a string before processing
-  if (typeof content !== 'string') {
+    // Ensure content is a string before processing
+    if (typeof content !== 'string') {
+      return '';
+    }
+
+    const trimmedContent = content.trim();
+    const isLikelyJson = (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) ||
+                         (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'));
+    
+    if (isLikelyJson) {
+      try {
+        const parsed = JSON.parse(content);
+        return JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        // If JSON parsing fails, continue with string processing
+      }
+    }
+    return content
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\r/g, '')
+      .replace(/\\\\/g, '\\')
+      .replace(/\\"/g, '"')
+      .replace(/\\'/g, "'");
+  } catch (error) {
+    console.error('Error in processFileContent:', error, 'Content:', content, 'Type:', typeof content);
     return '';
   }
-
-  const trimmedContent = content.trim();
-  const isLikelyJson = (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) ||
-                       (trimmedContent.startsWith('[') && trimmedContent.endsWith(']'));
-  
-  if (isLikelyJson) {
-    try {
-      const parsed = JSON.parse(content);
-      return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      // If JSON parsing fails, continue with string processing
-    }
-  }
-  return content
-    .replace(/\\n/g, '\n')
-    .replace(/\\t/g, '\t')
-    .replace(/\\r/g, '')
-    .replace(/\\\\/g, '\\')
-    .replace(/\\"/g, '"')
-    .replace(/\\'/g, "'");
 }
 
 // Helper to determine file type (for syntax highlighting)

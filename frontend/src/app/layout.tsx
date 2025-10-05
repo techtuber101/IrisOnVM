@@ -146,6 +146,21 @@ export default function RootLayout({
               console.error('Error:', event.error);
               console.groupEnd();
             });
+
+            // Specific handler for replace function errors
+            const originalReplace = String.prototype.replace;
+            String.prototype.replace = function(searchValue, replaceValue) {
+              try {
+                if (typeof this !== 'string') {
+                  console.error('🚨 Replace called on non-string:', this, 'Type:', typeof this);
+                  return '';
+                }
+                return originalReplace.call(this, searchValue, replaceValue);
+              } catch (error) {
+                console.error('🚨 Error in replace function:', error, 'This:', this, 'Search:', searchValue, 'Replace:', replaceValue);
+                return '';
+              }
+            };
           `}
         </Script>
       </head>
