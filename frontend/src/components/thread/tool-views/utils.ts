@@ -1346,6 +1346,16 @@ export function getToolComponent(toolName: string): string {
 
 // Helper function to normalize content to string
 export function normalizeContentToString(content: string | object | undefined | null): string | null {
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.debug('normalizeContentToString called with:', {
+      content,
+      type: typeof content,
+      isNull: content === null,
+      isUndefined: content === undefined,
+    });
+  }
+
   if (!content) return null;
   
   if (typeof content === 'string') {

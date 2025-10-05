@@ -3,6 +3,9 @@ import type { NextConfig } from 'next';
 const nextConfig = (): NextConfig => ({
   output: (process.env.NEXT_OUTPUT as 'standalone') || undefined,
   
+  // Enable source maps for better debugging
+  productionBrowserSourceMaps: true,
+  
   async rewrites() {
     return [
       {

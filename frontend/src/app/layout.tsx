@@ -8,6 +8,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
 import { PostHogIdentify } from '@/components/posthog-identify';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { setupGlobalErrorHandlers } from '@/lib/debug-errors';
 import '@/lib/polyfills'; // Load polyfills early
 
 const geistSans = Geist({
@@ -124,6 +126,28 @@ export default function RootLayout({
           })(window,document,'script','dataLayer','GTM-PCHSN4M2');`}
         </Script>
         <Script async src="https://cdn.tolt.io/tolt.js" data-tolt={process.env.NEXT_PUBLIC_TOLT_REFERRAL_ID}></Script>
+        <Script id="setup-error-handlers" strategy="beforeInteractive">
+          {`
+            // Setup global error handlers
+            window.addEventListener('unhandledrejection', (event) => {
+              console.group('🚨 Unhandled Promise Rejection');
+              console.error('Reason:', event.reason);
+              console.error('Promise:', event.promise);
+              console.groupEnd();
+              event.preventDefault();
+            });
+
+            window.addEventListener('error', (event) => {
+              console.group('🚨 Uncaught Error');
+              console.error('Message:', event.message);
+              console.error('Source:', event.filename);
+              console.error('Line:', event.lineno);
+              console.error('Column:', event.colno);
+              console.error('Error:', event.error);
+              console.groupEnd();
+            });
+          `}
+        </Script>
       </head>
 
       <body
@@ -146,12 +170,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Providers>
-            {children}
-            <Toaster />
-          </Providers>
-          <GoogleAnalytics gaId="G-6ETJFB3PT3" />
-          <PostHogIdentify />
+          <ErrorBoundary>
+            <Providers>
+              {children}
+              <Toaster />
+            </Providers>
+            <GoogleAnalytics gaId="G-6ETJFB3PT3" />
+            <PostHogIdentify />
+          </ErrorBoundary>
         </ThemeProvider>
       </body>
     </html>
